@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useRef, useState, useCallback, useEffect } from "react";
-import { createPortal } from "react-dom";
-import Link from "next/link";
-import { DocSearchModal, useDocSearchKeyboardEvents } from "@docsearch/react";
-import "@docsearch/css";
-import "./docSearch.css";
-import { IoIosSearch } from "react-icons/io";
 import { docSearchConfig } from "@/components/DocSearch/config";
+import "@docsearch/css";
+import { DocSearchModal, useDocSearchKeyboardEvents } from "@docsearch/react";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { IoIosSearch } from "react-icons/io";
+import "./docSearch.css";
 
 export default function CustomDocSearch() {
   const { appId, indexName, apiKey } = docSearchConfig.docSearch;
@@ -15,9 +15,13 @@ export default function CustomDocSearch() {
   const [isMac, setIsMac] = useState(false);
   const searchButtonRef = useRef<HTMLButtonElement>(null);
 
+  // 检查配置是否完整
+  const isConfigValid = appId && indexName && apiKey;
+
   const onOpen = useCallback(() => {
+    if (!isConfigValid) return;
     setIsOpen(true);
-  }, [setIsOpen]);
+  }, [setIsOpen, isConfigValid]);
 
   const onClose = useCallback(() => {
     setIsOpen(false);
@@ -34,6 +38,24 @@ export default function CustomDocSearch() {
   useEffect(() => {
     setIsMac(navigator.platform.toUpperCase().indexOf("MAC") >= 0);
   }, []);
+
+  // 配置缺失时输出警告并不渲染组件
+  useEffect(() => {
+    if (!isConfigValid) {
+      const missing: string[] = [];
+      if (!appId) missing.push("NEXT_PUBLIC_DOC_SEARCH_APP_ID");
+      if (!indexName) missing.push("NEXT_PUBLIC_DOC_SEARCH_INDEX_NAME");
+      if (!apiKey) missing.push("NEXT_PUBLIC_DOC_SEARCH_API_KEY");
+      console.warn(
+        `[DocSearch] 缺少必要的配置参数: ${missing.join(", ")}。搜索功能已禁用。`
+      );
+    }
+  }, [isConfigValid, appId, indexName, apiKey]);
+
+  // 配置不完整时不渲染
+  if (!isConfigValid) {
+    return null;
+  }
 
   return (
     <>
