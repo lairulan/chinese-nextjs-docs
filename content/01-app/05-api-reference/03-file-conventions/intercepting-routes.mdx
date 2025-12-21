@@ -1,0 +1,84 @@
+---
+title: Intercepting Routes
+description: 使用拦截路由在当前布局中加载新路由，同时屏蔽浏览器 URL，适用于模态框等高级路由模式。
+related:
+  title: Next Steps
+  description: 学习如何使用拦截路由和并行路由创建模态框。
+  links:
+    - app/api-reference/file-conventions/parallel-routes
+slug: /docs/app/api-reference/file-conventions/intercepting-routes
+---
+
+拦截路由允许你在当前布局中加载应用程序另一部分的路由。当你想要显示路由内容而不需要用户切换到不同上下文时，这种路由范式非常有用。
+
+例如，当在信息流中点击一张照片时，你可以在模态框中显示该照片，覆盖在信息流上。在这种情况下，Next.js 拦截 `/photo/123` 路由，屏蔽 URL，并将其覆盖在 `/feed` 上。
+
+<Image
+  alt="Intercepting routes soft navigation"
+  srcLight="/light/intercepting-routes-soft-navigate.png"
+  srcDark="/dark/intercepting-routes-soft-navigate.png"
+  width="1600"
+  height="617"
+/>
+
+然而，当通过点击可分享的 URL 或刷新页面导航到照片时，应该渲染整个照片页面而不是模态框。此时不应发生路由拦截。
+
+<Image
+  alt="Intercepting routes hard navigation"
+  srcLight="/light/intercepting-routes-hard-navigate.png"
+  srcDark="/dark/intercepting-routes-hard-navigate.png"
+  width="1600"
+  height="604"
+/>
+
+## 约定
+
+拦截路由可以使用 `(..)` 约定来定义，这类似于相对路径约定 `../`，但用于路由段。
+
+你可以使用：
+
+- `(.)` 匹配**同级**的段
+- `(..)` 匹配**上一级**的段
+- `(..)(..)` 匹配**上两级**的段
+- `(...)` 匹配从 **root** `app` 目录开始的段
+
+例如，你可以通过创建 `(..)photo` 目录，从 `feed` 段中拦截 `photo` 段。
+
+<Image
+  alt="Intercepting routes folder structure"
+  srcLight="/light/intercepted-routes-files.png"
+  srcDark="/dark/intercepted-routes-files.png"
+  width="1600"
+  height="604"
+/>
+
+> **值得注意的是**：`(..)` 约定基于_路由段_，而不是文件系统。例如，它不考虑[并行路由](/docs/app/api-reference/file-conventions/parallel-routes)中的 `@slot` 文件夹。
+
+## 示例
+
+### 模态框
+
+拦截路由可以与[并行路由](/docs/app/api-reference/file-conventions/parallel-routes)一起使用来创建模态框。这使你能够解决构建模态框时的常见挑战，例如：
+
+- 使模态框内容**可通过 URL 分享**。
+- 当页面刷新时**保留上下文**，而不是关闭模态框。
+- 在后退导航时**关闭模态框**，而不是转到上一个路由。
+- 在前进导航时**重新打开模态框**。
+
+考虑以下 UI 模式，用户可以使用客户端导航从图库打开照片模态框，或直接从可分享的 URL 导航到照片页面：
+
+<Image
+  alt="Intercepting routes modal example"
+  srcLight="/light/intercepted-routes-modal-example.png"
+  srcDark="/dark/intercepted-routes-modal-example.png"
+  width="1600"
+  height="976"
+/>
+
+在上面的示例中，`photo` 段的路径可以使用 `(..)` 匹配器，因为 `@modal` 是一个插槽而**不是**一个段。这意味着 `photo` 路由只高一个段级别，尽管它在文件系统中高两级。
+
+查看[并行路由](/docs/app/api-reference/file-conventions/parallel-routes#modals)文档以获取分步示例，或查看我们的[图片画廊示例](https://github.com/vercel-labs/nextgram)。
+
+> **值得注意的是**：
+>
+> - 其他示例可能包括在顶部导航栏中打开登录模态框，同时还有一个专门的 `/login` 页面，或在侧边模态框中打开购物车。

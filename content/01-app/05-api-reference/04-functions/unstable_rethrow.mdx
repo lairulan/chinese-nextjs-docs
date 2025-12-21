@@ -1,0 +1,66 @@
+---
+title: unstable_rethrow
+description: unstable_rethrow 函数的 API 参考。
+version: unstable
+slug: /docs/app/api-reference/functions/unstable_rethrow
+---
+
+`unstable_rethrow` 可用于在尝试处理应用程序代码中抛出的错误时，避免捕获 Next.js 抛出的内部错误。
+
+例如，调用 `notFound` 函数会抛出一个 Next.js 内部错误并渲染 [`not-found.js`](/docs/app/api-reference/file-conventions/not-found) 组件。然而，如果在 `try/catch` 语句的 `try` 块内使用，该错误将被捕获，从而阻止 `not-found.js` 的渲染:
+
+```tsx filename="@/app/ui/component.tsx"
+import { notFound } from 'next/navigation'
+
+export default async function Page() {
+  try {
+    const post = await fetch('https://.../posts/1').then((res) => {
+      if (res.status === 404) notFound()
+      if (!res.ok) throw new Error(res.statusText)
+      return res.json()
+    })
+  } catch (err) {
+    console.error(err)
+  }
+}
+```
+
+你可以使用 `unstable_rethrow` API 重新抛出内部错误并继续执行预期的行为:
+
+```tsx filename="@/app/ui/component.tsx"
+import { notFound, unstable_rethrow } from 'next/navigation'
+
+export default async function Page() {
+  try {
+    const post = await fetch('https://.../posts/1').then((res) => {
+      if (res.status === 404) notFound()
+      if (!res.ok) throw new Error(res.statusText)
+      return res.json()
+    })
+  } catch (err) {
+    unstable_rethrow(err)
+    console.error(err)
+  }
+}
+```
+
+以下 Next.js API 依赖于抛出错误，这些错误应该被重新抛出并由 Next.js 自身处理:
+
+- [`notFound()`](/docs/app/api-reference/functions/not-found)
+- [`redirect()`](/docs/app/guides/redirecting#redirect-function)
+- [`permanentRedirect()`](/docs/app/guides/redirecting#permanentredirect-function)
+
+如果一个路由段被标记为抛出错误(除非它是静态的)，Dynamic API 调用也会抛出一个错误，同样不应该被开发者捕获。请注意，Partial Prerendering (PPR) 也会影响此行为。这些 API 包括:
+
+- [`cookies`](/docs/app/api-reference/functions/cookies)
+- [`headers`](/docs/app/api-reference/functions/headers)
+- [`searchParams`](/docs/app/api-reference/file-conventions/page#searchparams-optional)
+- `fetch(..., { cache: 'no-store' })`
+- `fetch(..., { next: { revalidate: 0 } })`
+
+> **值得注意的是**:
+>
+> - 此方法应该在 catch 块的顶部调用，将错误对象作为其唯一参数传递。它也可以在 promise 的 `.catch` 处理程序中使用。
+> - 如果你封装抛出异常的 API 调用并让**调用者**处理异常，则可以避免使用 `unstable_rethrow`。
+> - 只有在你捕获的异常可能同时包含应用程序错误和框架控制的异常(如 `redirect()` 或 `notFound()`)时，才使用 `unstable_rethrow`。
+> - 任何资源清理(如清除间隔、定时器等)都必须在调用 `unstable_rethrow` 之前进行，或者在 `finally` 块中进行。

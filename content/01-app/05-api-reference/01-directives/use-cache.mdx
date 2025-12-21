@@ -1,0 +1,391 @@
+---
+title: use cache
+description: 学习如何使用 use cache 指令在 Next.js 应用中缓存数据。
+related:
+  title: 相关
+  description: 查看相关 API 参考。
+  links:
+    - app/api-reference/directives/use-cache-private
+    - app/api-reference/config/next-config-js/cacheComponents
+    - app/api-reference/config/next-config-js/cacheLife
+    - app/api-reference/functions/cacheTag
+    - app/api-reference/functions/cacheLife
+    - app/api-reference/functions/revalidateTag
+slug: /docs/app/api-reference/directives/use-cache
+---
+
+`use cache` 指令允许你将路由、React 组件或函数标记为可缓存。它可以在文件顶部使用，表示文件中的所有导出都应被缓存，或者在函数或组件顶部内联使用，以缓存返回值。
+
+> **值得注意的是**： 对于需要访问 cookies 或 headers 的用户特定内容缓存，请参阅 [`'use cache: private'`](/docs/app/api-reference/directives/use-cache-private)。
+
+## 用法
+
+`use cache` 是 Cache Components 功能的一部分。要启用它，请在 `next.config.ts` 文件中添加 [`cacheComponents`](/docs/app/api-reference/config/next-config-js/cacheComponents) 选项：
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  cacheComponents: true,
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  cacheComponents: true,
+}
+
+module.exports = nextConfig
+```
+
+然后，在文件、组件或函数级别添加 `use cache`：
+
+```tsx
+// 文件级别
+'use cache'
+
+export default async function Page() {
+  // ...
+}
+
+// 组件级别
+export async function MyComponent() {
+  'use cache'
+  return <></>
+}
+
+// 函数级别
+export async function getData() {
+  'use cache'
+  const data = await fetch('/api/data')
+  return data
+}
+```
+
+## `use cache` 如何工作
+
+### 缓存键
+
+缓存条目的键是使用其输入的序列化版本生成的，包括：
+
+- Build ID（为每次构建生成）
+- Function ID（函数独有的安全标识符）
+- [可序列化的](https://react.dev/reference/rsc/use-server#serializable-parameters-and-return-values)函数参数（或 props）。
+
+传递给缓存函数的参数，以及它从父作用域读取的任何值，都会自动成为键的一部分。这意味着，只要输入相同，就会重用相同的缓存条目。
+
+## 不可序列化的参数
+
+任何不可序列化的参数、props 或闭包值都将在缓存函数内部变成引用，并且只能传递而不能检查或修改。这些不可序列化的值将在请求时填充，不会成为缓存键的一部分。
+
+例如，缓存函数可以接收 JSX 作为 `children` prop 并返回 `<div>{children}</div>`，但它无法检查实际的 `children` 对象。这允许你在缓存组件内部嵌套未缓存的内容。
+
+```tsx filename="app/ui/cached-component.tsx" switcher
+function CachedComponent({ children }: { children: ReactNode }) {
+  'use cache'
+  return <div>{children}</div>
+}
+```
+
+```jsx filename="app/ui/cached-component.js" switcher
+function CachedComponent({ children }) {
+  'use cache'
+  return <div>{children}</div>
+}
+```
+
+## 返回值
+
+可缓存函数的返回值必须是可序列化的。这确保缓存的数据可以被正确存储和检索。
+
+## 构建时的 `use cache`
+
+当在 [layout](/docs/app/api-reference/file-conventions/layout) 或 [page](/docs/app/api-reference/file-conventions/page) 顶部使用时，路由段将被预渲染，允许稍后[重新验证](#during-revalidation)。
+
+这意味着 `use cache` 不能与 [运行时数据](/docs/app/getting-started/cache-components#1-suspense-for-runtime-data)（如 `cookies` 或 `headers`）一起使用。
+
+> **注意：** 如果你需要缓存依赖于 cookies、headers 或 search params 的内容，请使用 [`'use cache: private'`](/docs/app/api-reference/directives/use-cache-private)。
+
+## 运行时的 `use cache`
+
+在**服务器**上，单个组件或函数的缓存条目将被缓存在内存中。
+
+然后，在**客户端**上，从服务器缓存返回的任何内容都将存储在浏览器的内存中，持续整个会话期间或直到[重新验证](#during-revalidation)。
+
+## 重新验证期间
+
+默认情况下，`use cache` 的服务器端重新验证周期为 **15 分钟**。虽然这个周期可能适用于不需要频繁更新的内容，但你可以使用 `cacheLife` 和 `cacheTag` API 来配置何时应重新验证单个缓存条目。
+
+- [`cacheLife`](/docs/app/api-reference/functions/cacheLife)：配置缓存条目的生命周期。
+- [`cacheTag`](/docs/app/api-reference/functions/cacheTag)：创建用于按需重新验证的标签。
+
+这两个 API 都集成在客户端和服务器缓存层之间，这意味着你可以在一个地方配置缓存语义，并使它们在任何地方应用。
+
+有关更多信息，请参阅 [`cacheLife`](/docs/app/api-reference/functions/cacheLife) 和 [`cacheTag`](/docs/app/api-reference/functions/cacheTag) API 文档。
+
+## 示例
+
+### 使用 `use cache` 缓存整个路由
+
+要预渲染整个路由，请在 `layout` 和 `page` 文件的顶部**都**添加 `use cache`。这些段中的每一个都被视为应用程序中的独立入口点，并将独立缓存。
+
+```tsx filename="app/layout.tsx" switcher
+'use cache'
+
+export default function Layout({ children }: { children: ReactNode }) {
+  return <div>{children}</div>
+}
+```
+
+```jsx filename="app/page.tsx" switcher
+'use cache'
+
+export default function Layout({ children }) {
+  return <div>{children}</div>
+}
+```
+
+任何在 `page` 文件中导入和嵌套的组件都是与 `page` 关联的缓存输出的一部分。
+
+```tsx filename="app/page.tsx" switcher
+'use cache'
+
+async function Users() {
+  const users = await fetch('/api/users')
+  // 遍历 users
+}
+
+export default function Page() {
+  return (
+    <main>
+      <Users />
+    </main>
+  )
+}
+```
+
+```jsx filename="app/page.js" switcher
+'use cache'
+
+async function Users() {
+  const users = await fetch('/api/users')
+  // 遍历 users
+}
+
+export default function Page() {
+  return (
+    <main>
+      <Users />
+    </main>
+  )
+}
+```
+
+> **值得注意的是**：
+>
+> - 如果 `use cache` 仅添加到 `layout` 或 `page`，则只有该路由段和导入其中的任何组件将被缓存。
+> - 如果路由中的任何嵌套子级使用 [Dynamic APIs](/docs/app/guides/caching#dynamic-rendering)，则该路由将退出预渲染。
+
+### 使用 `use cache` 缓存组件的输出
+
+你可以在组件级别使用 `use cache` 来缓存该组件内执行的任何获取或计算。只要序列化的 props 在每个实例中产生相同的值，缓存条目就会被重用。
+
+```tsx filename="app/components/bookings.tsx" highlight={2} switcher
+export async function Bookings({ type = 'haircut' }: BookingsProps) {
+  'use cache'
+  async function getBookingsData() {
+    const data = await fetch(`/api/bookings?type=${encodeURIComponent(type)}`)
+    return data
+  }
+  return //...
+}
+
+interface BookingsProps {
+  type: string
+}
+```
+
+```jsx filename="app/components/bookings.js" highlight={2} switcher
+export async function Bookings({ type = 'haircut' }) {
+  'use cache'
+  async function getBookingsData() {
+    const data = await fetch(`/api/bookings?type=${encodeURIComponent(type)}`)
+    return data
+  }
+  return //...
+}
+```
+
+### 使用 `use cache` 缓存函数输出
+
+由于你可以将 `use cache` 添加到任何异步函数，因此不仅限于缓存组件或路由。你可能希望缓存网络请求、数据库查询或耗时的计算。
+
+```tsx filename="app/actions.ts" highlight={2} switcher
+export async function getData() {
+  'use cache'
+
+  const data = await fetch('/api/data')
+  return data
+}
+```
+
+```jsx filename="app/actions.js" highlight={2} switcher
+export async function getData() {
+  'use cache'
+
+  const data = await fetch('/api/data')
+  return data
+}
+```
+
+### 交错使用
+
+在 React 中，使用 `children` 或插槽进行组合是构建灵活组件的常用模式。使用 `use cache` 时，你可以继续以这种方式组合 UI。返回的 JSX 中作为 `children` 或其他组合插槽包含的任何内容都将传递通过缓存组件，而不会影响其缓存条目。
+
+只要你不在可缓存函数本身的主体内直接引用任何 JSX 插槽，它们在返回的输出中的存在就不会影响缓存条目。
+
+```tsx filename="app/page.tsx" switcher
+export default async function Page() {
+  const uncachedData = await getData()
+  return (
+    // 将组合插槽作为 props 传递，例如 header 和 children
+    <CacheComponent header={<h1>Home</h1>}>
+      {/* DynamicComponent 作为 children 插槽提供 */}
+      <DynamicComponent data={uncachedData} />
+    </CacheComponent>
+  )
+}
+
+async function CacheComponent({
+  header, // header：一个组合插槽，作为 prop 注入
+  children, // children：另一个用于嵌套组合的插槽
+}: {
+  header: ReactNode
+  children: ReactNode
+}) {
+  'use cache'
+  const cachedData = await fetch('/api/cached-data')
+  return (
+    <div>
+      {header}
+      <PrerenderedComponent data={cachedData} />
+      {children}
+    </div>
+  )
+}
+```
+
+```jsx filename="app/page.js" switcher
+export default async function Page() {
+  const uncachedData = await getData()
+  return (
+    // 将组合插槽作为 props 传递，例如 header 和 children
+    <CacheComponent header={<h1>Home</h1>}>
+      {/* DynamicComponent 作为 children 插槽提供 */}
+      <DynamicComponent data={uncachedData} />
+    </CacheComponent>
+  )
+}
+
+async function CacheComponent({
+  header, // header：一个组合插槽，作为 prop 注入
+  children, // children：另一个用于嵌套组合的插槽
+}) {
+  'use cache'
+  const cachedData = await fetch('/api/cached-data')
+  return (
+    <div>
+      {header}
+      <PrerenderedComponent data={cachedData} />
+      {children}
+    </div>
+  )
+}
+```
+
+你还可以通过缓存组件将 Server Actions 传递给 Client Components，而无需在可缓存函数内调用它们。
+
+```tsx filename="app/page.tsx" switcher
+import ClientComponent from './ClientComponent'
+
+export default async function Page() {
+  const performUpdate = async () => {
+    'use server'
+    // 执行一些服务器端更新
+    await db.update(...)
+  }
+
+  return <CacheComponent performUpdate={performUpdate} />
+}
+
+async function CachedComponent({
+  performUpdate,
+}: {
+  performUpdate: () => Promise<void>
+}) {
+  'use cache'
+  // 不要在这里调用 performUpdate
+  return <ClientComponent action={performUpdate} />
+}
+```
+
+```jsx filename="app/page.js" switcher
+import ClientComponent from './ClientComponent'
+
+export default async function Page() {
+  const performUpdate = async () => {
+    'use server'
+    // 执行一些服务器端更新
+    await db.update(...)
+  }
+
+  return <CacheComponent performUpdate={performUpdate} />
+}
+
+async function CachedComponent({ performUpdate }) {
+  'use cache'
+  // 不要在这里调用 performUpdate
+  return <ClientComponent action={performUpdate} />
+}
+```
+
+```tsx filename="app/ClientComponent.tsx" switcher
+'use client'
+
+export default function ClientComponent({
+  action,
+}: {
+  action: () => Promise<void>
+}) {
+  return <button onClick={action}>Update</button>
+}
+```
+
+```jsx filename="app/ClientComponent.js" switcher
+'use client'
+
+export default function ClientComponent({ action }) {
+  return <button onClick={action}>Update</button>
+}
+```
+
+## 平台支持
+
+| 部署选项                                                   | 支持情况          |
+| ------------------------------------------------------------------- | ----------------- |
+| [Node.js server](/docs/app/getting-started/deploying#nodejs-server) | 是               |
+| [Docker container](/docs/app/getting-started/deploying#docker)      | 是               |
+| [Static export](/docs/app/getting-started/deploying#static-export)  | 否                |
+| [Adapters](/docs/app/getting-started/deploying#adapters)            | 取决于平台 |
+
+了解如何在自托管 Next.js 时[配置缓存](/docs/app/guides/self-hosting#caching-and-isr)。
+
+## 版本历史
+
+| 版本   | 变更                                                     |
+| --------- | ----------------------------------------------------------- |
+| `v16.0.0` | `"use cache"` 通过 Cache Components 功能启用。 |
+| `v15.0.0` | `"use cache"` 作为实验性功能引入。     |

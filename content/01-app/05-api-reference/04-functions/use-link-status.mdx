@@ -1,0 +1,243 @@
+---
+title: useLinkStatus
+description: useLinkStatus hook 的 API 参考。
+related:
+  title: 后续步骤
+  description: 通过阅读 API 参考来了解本页提到的更多功能。
+  links:
+    - app/api-reference/components/link
+    - app/api-reference/file-conventions/loading
+slug: /docs/app/api-reference/functions/use-link-status
+---
+
+`useLinkStatus` hook 允许你跟踪 `<Link>` 的 **pending** 状态。使用它来提供细微的内联反馈，例如在导航完成时在被点击的链接上添加闪烁效果。优先使用 `loading.js` 的路由级别回退，以及预取来实现即时过渡。
+
+`useLinkStatus` 在以下情况下很有用：
+
+- [预取](/docs/app/getting-started/linking-and-navigating#prefetching)被禁用或正在进行中，这意味着导航被阻塞。
+- 目标路由是动态的**且**不包含 [`loading.js`](/docs/app/api-reference/file-conventions/loading) 文件，而该文件本可以允许即时导航。
+
+```tsx filename="app/hint.tsx" switcher
+'use client'
+
+import Link from 'next/link'
+import { useLinkStatus } from 'next/link'
+
+function Hint() {
+  const { pending } = useLinkStatus()
+  return (
+    <span aria-hidden className={`link-hint ${pending ? 'is-pending' : ''}`} />
+  )
+}
+
+export default function Header() {
+  return (
+    <header>
+      <Link href="/dashboard" prefetch={false}>
+        <span className="label">Dashboard</span> <Hint />
+      </Link>
+    </header>
+  )
+}
+```
+
+```jsx filename="app/hint.js" switcher
+'use client'
+
+import Link from 'next/link'
+import { useLinkStatus } from 'next/link'
+
+function Hint() {
+  const { pending } = useLinkStatus()
+  return (
+    <span aria-hidden className={`link-hint ${pending ? 'is-pending' : ''}`} />
+  )
+}
+
+export default function Header() {
+  return (
+    <header>
+      <Link href="/dashboard" prefetch={false}>
+        <span className="label">Dashboard</span> <Hint />
+      </Link>
+    </header>
+  )
+}
+```
+
+> **值得注意的是**：
+>
+> - `useLinkStatus` 必须在 `Link` 组件的后代组件中使用
+> - 当 `Link` 组件上设置 `prefetch={false}` 时，该 hook 最有用
+> - 如果链接的路由已被预取，pending 状态将被跳过
+> - 当快速连续点击多个链接时，只会显示最后一个链接的 pending 状态
+> - 此 hook 在 Pages Router 中不受支持，始终返回 `{ pending: false }`
+> - 内联指示器很容易引入布局偏移。优先使用固定大小、始终渲染的提示元素并切换其不透明度，或使用动画。
+
+## 你可能不需要 `useLinkStatus`
+
+在添加内联反馈之前，请考虑：
+
+- 目标是否是静态的并且在生产环境中已预取，因此 pending 阶段可能会被跳过。
+- 路由是否有 `loading.js` 文件，从而通过路由级别回退启用即时过渡。
+
+导航通常很快。当你发现慢速过渡时，使用 `useLinkStatus` 作为快速补丁，然后通过预取或 `loading.js` 回退来迭代修复根本原因。
+
+## 参数
+
+```tsx
+const { pending } = useLinkStatus()
+```
+
+`useLinkStatus` 不接受任何参数。
+
+## 返回值
+
+`useLinkStatus` 返回一个具有单个属性的对象：
+
+| 属性    | 类型    | 描述                            |
+| ------- | ------- | ------------------------------- |
+| pending | boolean | 历史记录更新前为 `true`，更新后为 `false` |
+
+## 示例
+
+### 内联链接提示
+
+添加一个细微的、固定大小的提示，不会影响布局，在预取未完成时确认点击。
+
+```tsx filename="app/components/loading-indicator.tsx" switcher
+'use client'
+
+import { useLinkStatus } from 'next/link'
+
+export default function LoadingIndicator() {
+  const { pending } = useLinkStatus()
+  return (
+    <span aria-hidden className={`link-hint ${pending ? 'is-pending' : ''}`} />
+  )
+}
+```
+
+```jsx filename="app/components/loading-indicator.js" switcher
+'use client'
+
+import { useLinkStatus } from 'next/link'
+
+export default function LoadingIndicator() {
+  const { pending } = useLinkStatus()
+  return (
+    <span aria-hidden className={`link-hint ${pending ? 'is-pending' : ''}`} />
+  )
+}
+```
+
+```tsx filename="app/shop/layout.tsx" switcher
+import Link from 'next/link'
+import LoadingIndicator from './components/loading-indicator'
+
+const links = [
+  { href: '/shop/electronics', label: 'Electronics' },
+  { href: '/shop/clothing', label: 'Clothing' },
+  { href: '/shop/books', label: 'Books' },
+]
+
+function Menubar() {
+  return (
+    <div>
+      {links.map((link) => (
+        <Link key={link.label} href={link.href}>
+          <span className="label">{link.label}</span> <LoadingIndicator />
+        </Link>
+      ))}
+    </div>
+  )
+}
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <div>
+      <Menubar />
+      {children}
+    </div>
+  )
+}
+```
+
+```jsx filename="app/shop/layout.js" switcher
+import Link from 'next/link'
+import LoadingIndicator from './components/loading-indicator'
+
+const links = [
+  { href: '/shop/electronics', label: 'Electronics' },
+  { href: '/shop/clothing', label: 'Clothing' },
+  { href: '/shop/books', label: 'Books' },
+]
+
+function Menubar() {
+  return (
+    <div>
+      {links.map((link) => (
+        <Link key={link.label} href={link.href}>
+          <span className="label">{link.label}</span> <LoadingIndicator />
+        </Link>
+      ))}
+    </div>
+  )
+}
+
+export default function Layout({ children }) {
+  return (
+    <div>
+      <Menubar />
+      {children}
+    </div>
+  )
+}
+```
+
+## 优雅地处理快速导航
+
+如果导航到新路由很快，用户可能会看到不必要的提示闪烁。改善用户体验并仅在导航需要时间完成时显示提示的一种方法是添加初始动画延迟（例如 100ms）并以不可见状态（例如 `opacity: 0`）开始动画。
+
+```css filename="app/styles/global.css"
+.link-hint {
+  display: inline-block;
+  width: 0.6em;
+  height: 0.6em;
+  margin-left: 0.25rem;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0;
+  visibility: hidden; /* 保留空间而不显示提示 */
+}
+
+.link-hint.is-pending {
+  /* 动画 1：100ms 后淡入并保持最终不透明度 */
+  /* 动画 2：pending 时的细微脉动 */
+  visibility: visible;
+  animation-name: fadeIn, pulse;
+  animation-duration: 200ms, 1s;
+  /* 仅在导航实际需要时间时出现 */
+  animation-delay: 100ms, 100ms;
+  animation-timing-function: ease, ease-in-out;
+  animation-iteration-count: 1, infinite;
+  animation-fill-mode: forwards, none;
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 0.35;
+  }
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.15;
+  }
+}
+```
+
+## 版本历史
+
+| 版本      | 变更                        |
+| --------- | --------------------------- |
+| `v15.3.0` | 引入 `useLinkStatus`。      |

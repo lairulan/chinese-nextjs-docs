@@ -1,0 +1,466 @@
+---
+title: generateStaticParams
+description: generateStaticParams 函数的 API 参考。
+slug: /docs/app/api-reference/functions/generate-static-params
+---
+
+`generateStaticParams` 函数可以与[动态路由段](/docs/app/api-reference/file-conventions/dynamic-routes)结合使用，在构建时[**静态生成**](/docs/app/guides/caching#static-rendering)路由，而不是在请求时按需生成。
+
+```tsx filename="app/blog/[slug]/page.tsx" switcher
+// 返回一个 `params` 列表来填充 [slug] 动态段
+export async function generateStaticParams() {
+  const posts = await fetch('https://.../posts').then((res) => res.json())
+
+  return posts.map((post) => ({
+    slug: post.slug,
+  }))
+}
+
+// 使用 `generateStaticParams` 返回的 `params`
+// 将静态生成此页面的多个版本
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}) {
+  const { slug } = await params
+  // ...
+}
+```
+
+```jsx filename="app/blog/[slug]/page.js" switcher
+// 返回一个 `params` 列表来填充 [slug] 动态段
+export async function generateStaticParams() {
+  const posts = await fetch('https://.../posts').then((res) => res.json())
+
+  return posts.map((post) => ({
+    slug: post.slug,
+  }))
+}
+
+// 使用 `generateStaticParams` 返回的 `params`
+// 将静态生成此页面的多个版本
+export default async function Page({ params }) {
+  const { slug } = await params
+  // ...
+}
+```
+
+> **值得注意的是**：
+>
+> - 你可以使用 [`dynamicParams`](/docs/app/api-reference/file-conventions/route-segment-config#dynamicparams) 段配置选项来控制访问未通过 `generateStaticParams` 生成的动态段时会发生什么。
+> - 你必须[从 `generateStaticParams` 返回一个空数组](#all-paths-at-build-time)或使用 [`export const dynamic = 'force-static'`](/docs/app/api-reference/file-conventions/route-segment-config#dynamic) 才能在运行时重新验证（ISR）[路径](#all-paths-at-runtime)。
+> - 在 `next dev` 期间，当你导航到一个路由时，`generateStaticParams` 会被调用。
+> - 在 `next build` 期间，`generateStaticParams` 会在相应的 Layouts 或 Pages 生成之前运行。
+> - 在重新验证（ISR）期间，`generateStaticParams` 不会再次被调用。
+> - `generateStaticParams` 替代了 Pages Router 中的 [`getStaticPaths`](/docs/pages/api-reference/functions/get-static-paths) 函数。
+
+## 参数
+
+`options.params`（可选）
+
+如果路由中的多个动态段使用 `generateStaticParams`，子 `generateStaticParams` 函数会为父级生成的每组 `params` 执行一次。
+
+`params` 对象包含来自父级 `generateStaticParams` 的已填充 `params`，可用于[在子段中生成 `params`](#multiple-dynamic-segments-in-a-route)。
+
+## 返回值
+
+`generateStaticParams` 应该返回一个对象数组，其中每个对象表示单个路由的已填充动态段。
+
+- 对象中的每个属性都是要为路由填充的动态段。
+- 属性名称是段的名称，属性值是该段应填充的内容。
+
+| 示例路由                           | `generateStaticParams` 返回类型           |
+| -------------------------------- | ----------------------------------------- |
+| `/product/[id]`                  | `{ id: string }[]`                        |
+| `/products/[category]/[product]` | `{ category: string, product: string }[]` |
+| `/products/[...slug]`            | `{ slug: string[] }[]`                    |
+
+## 单个动态段
+
+```tsx filename="app/product/[id]/page.tsx" switcher
+export function generateStaticParams() {
+  return [{ id: '1' }, { id: '2' }, { id: '3' }]
+}
+
+// 使用 `generateStaticParams` 返回的 `params`
+// 将静态生成此页面的三个版本
+// - /product/1
+// - /product/2
+// - /product/3
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  // ...
+}
+```
+
+```jsx filename="app/product/[id]/page.js" switcher
+export function generateStaticParams() {
+  return [{ id: '1' }, { id: '2' }, { id: '3' }]
+}
+
+// 使用 `generateStaticParams` 返回的 `params`
+// 将静态生成此页面的三个版本
+// - /product/1
+// - /product/2
+// - /product/3
+export default async function Page({ params }) {
+  const { id } = await params
+  // ...
+}
+```
+
+## 多个动态段
+
+```tsx filename="app/products/[category]/[product]/page.tsx" switcher
+export function generateStaticParams() {
+  return [
+    { category: 'a', product: '1' },
+    { category: 'b', product: '2' },
+    { category: 'c', product: '3' },
+  ]
+}
+
+// 使用 `generateStaticParams` 返回的 `params`
+// 将静态生成此页面的三个版本
+// - /products/a/1
+// - /products/b/2
+// - /products/c/3
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ category: string; product: string }>
+}) {
+  const { category, product } = await params
+  // ...
+}
+```
+
+```jsx filename="app/products/[category]/[product]/page.js" switcher
+export function generateStaticParams() {
+  return [
+    { category: 'a', product: '1' },
+    { category: 'b', product: '2' },
+    { category: 'c', product: '3' },
+  ]
+}
+
+// 使用 `generateStaticParams` 返回的 `params`
+// 将静态生成此页面的三个版本
+// - /products/a/1
+// - /products/b/2
+// - /products/c/3
+export default async function Page({ params }) {
+  const { category, product } = await params
+  // ...
+}
+```
+
+## 捕获所有动态段
+
+```tsx filename="app/product/[...slug]/page.tsx" switcher
+export function generateStaticParams() {
+  return [{ slug: ['a', '1'] }, { slug: ['b', '2'] }, { slug: ['c', '3'] }]
+}
+
+// 使用 `generateStaticParams` 返回的 `params`
+// 将静态生成此页面的三个版本
+// - /product/a/1
+// - /product/b/2
+// - /product/c/3
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ slug: string[] }>
+}) {
+  const { slug } = await params
+  // ...
+}
+```
+
+```jsx filename="app/product/[...slug]/page.js" switcher
+export function generateStaticParams() {
+  return [{ slug: ['a', '1'] }, { slug: ['b', '2'] }, { slug: ['c', '3'] }]
+}
+
+// 使用 `generateStaticParams` 返回的 `params`
+// 将静态生成此页面的三个版本
+// - /product/a/1
+// - /product/b/2
+// - /product/c/3
+export default async function Page({ params }) {
+  const { slug } = await params
+  // ...
+}
+```
+
+## 示例
+
+### 静态渲染
+
+#### 在构建时生成所有路径
+
+要在构建时静态渲染所有路径，请向 `generateStaticParams` 提供完整的路径列表：
+
+```tsx filename="app/blog/[slug]/page.tsx" switcher
+export async function generateStaticParams() {
+  const posts = await fetch('https://.../posts').then((res) => res.json())
+
+  return posts.map((post) => ({
+    slug: post.slug,
+  }))
+}
+```
+
+```jsx filename="app/blog/[slug]/page.js" switcher
+export async function generateStaticParams() {
+  const posts = await fetch('https://.../posts').then((res) => res.json())
+
+  return posts.map((post) => ({
+    slug: post.slug,
+  }))
+}
+```
+
+#### 在构建时生成路径子集
+
+要在构建时静态渲染路径子集，其余路径在运行时首次访问时生成，请返回部分路径列表：
+
+```tsx filename="app/blog/[slug]/page.tsx" switcher
+export async function generateStaticParams() {
+  const posts = await fetch('https://.../posts').then((res) => res.json())
+
+  // 在构建时渲染前 10 篇文章
+  return posts.slice(0, 10).map((post) => ({
+    slug: post.slug,
+  }))
+}
+```
+
+```jsx filename="app/blog/[slug]/page.js" switcher
+export async function generateStaticParams() {
+  const posts = await fetch('https://.../posts').then((res) => res.json())
+
+  // 在构建时渲染前 10 篇文章
+  return posts.slice(0, 10).map((post) => ({
+    slug: post.slug,
+  }))
+}
+```
+
+然后，通过使用 [`dynamicParams`](/docs/app/api-reference/file-conventions/route-segment-config#dynamicparams) 段配置选项，你可以控制访问未通过 `generateStaticParams` 生成的动态段时会发生什么。
+
+```tsx filename="app/blog/[slug]/page.tsx" switcher
+// 除前 10 篇文章外的所有文章都将返回 404
+export const dynamicParams = false
+
+export async function generateStaticParams() {
+  const posts = await fetch('https://.../posts').then((res) => res.json())
+  const topPosts = posts.slice(0, 10)
+
+  return topPosts.map((post) => ({
+    slug: post.slug,
+  }))
+}
+```
+
+```jsx filename="app/blog/[slug]/page.js" switcher
+// 除前 10 篇文章外的所有文章都将返回 404
+export const dynamicParams = false
+
+export async function generateStaticParams() {
+  const posts = await fetch('https://.../posts').then((res) => res.json())
+  const topPosts = posts.slice(0, 10)
+
+  return topPosts.map((post) => ({
+    slug: post.slug,
+  }))
+}
+```
+
+#### 在运行时生成所有路径
+
+要在首次访问时静态渲染所有路径，请返回一个空数组（构建时不会渲染任何路径）或使用 [`export const dynamic = 'force-static'`](/docs/app/api-reference/file-conventions/route-segment-config#dynamic)：
+
+```jsx filename="app/blog/[slug]/page.js"
+export async function generateStaticParams() {
+  return []
+}
+```
+
+> **值得注意的是**：你必须始终从 `generateStaticParams` 返回一个数组，即使它是空的。否则，路由将被动态渲染。
+
+```jsx filename="app/changelog/[slug]/page.js"
+export const dynamic = 'force-static'
+```
+
+### 禁用未指定路径的渲染
+
+要防止未指定的路径在运行时被静态渲染，请在路由段中添加 `export const dynamicParams = false` 选项。当使用此配置选项时，只有 `generateStaticParams` 提供的路径会被提供服务，未指定的路由将返回 404 或匹配（在[捕获所有路由](/docs/app/api-reference/file-conventions/dynamic-routes#catch-all-segments)的情况下）。
+
+### 路由中的多个动态段
+
+你可以为当前 layout 或 page 之上的动态段生成 params，但**不能为之下的**。例如，给定 `app/products/[category]/[product]` 路由：
+
+- `app/products/[category]/[product]/page.js` 可以为 `[category]` **和** `[product]` 生成 params。
+- `app/products/[category]/layout.js` **只能**为 `[category]` 生成 params。
+
+有两种方法为具有多个动态段的路由生成 params：
+
+#### 自下而上生成 params
+
+从子路由段生成多个动态段。
+
+```tsx filename="app/products/[category]/[product]/page.tsx" switcher
+// 为 [category] 和 [product] 生成段
+export async function generateStaticParams() {
+  const products = await fetch('https://.../products').then((res) => res.json())
+
+  return products.map((product) => ({
+    category: product.category.slug,
+    product: product.id,
+  }))
+}
+
+export default function Page({
+  params,
+}: {
+  params: Promise<{ category: string; product: string }>
+}) {
+  // ...
+}
+```
+
+```jsx filename="app/products/[category]/[product]/page.js" switcher
+// 为 [category] 和 [product] 生成段
+export async function generateStaticParams() {
+  const products = await fetch('https://.../products').then((res) => res.json())
+
+  return products.map((product) => ({
+    category: product.category.slug,
+    product: product.id,
+  }))
+}
+
+export default function Page({ params }) {
+  // ...
+}
+```
+
+#### 自上而下生成 params
+
+首先生成父段，然后使用结果生成子段。
+
+```tsx filename="app/products/[category]/layout.tsx" switcher
+// 为 [category] 生成段
+export async function generateStaticParams() {
+  const products = await fetch('https://.../products').then((res) => res.json())
+
+  return products.map((product) => ({
+    category: product.category.slug,
+  }))
+}
+
+export default function Layout({
+  params,
+}: {
+  params: Promise<{ category: string }>
+}) {
+  // ...
+}
+```
+
+```jsx filename="app/products/[category]/layout.js" switcher
+// 为 [category] 生成段
+export async function generateStaticParams() {
+  const products = await fetch('https://.../products').then((res) => res.json())
+
+  return products.map((product) => ({
+    category: product.category.slug,
+  }))
+}
+
+export default function Layout({ params }) {
+  // ...
+}
+```
+
+子路由段的 `generateStaticParams` 函数会为父 `generateStaticParams` 生成的每个段执行一次。
+
+子 `generateStaticParams` 函数可以使用从父 `generateStaticParams` 函数返回的 `params` 来动态生成自己的段。
+
+```tsx filename="app/products/[category]/[product]/page.tsx" switcher
+// 使用从父段的 `generateStaticParams` 函数传递的 `params`
+// 为 [product] 生成段
+export async function generateStaticParams({
+  params: { category },
+}: {
+  params: { category: string }
+}) {
+  const products = await fetch(
+    `https://.../products?category=${category}`
+  ).then((res) => res.json())
+
+  return products.map((product) => ({
+    product: product.id,
+  }))
+}
+
+export default function Page({
+  params,
+}: {
+  params: Promise<{ category: string; product: string }>
+}) {
+  // ...
+}
+```
+
+```jsx filename="app/products/[category]/[product]/page.js" switcher
+// 使用从父段的 `generateStaticParams` 函数传递的 `params`
+// 为 [product] 生成段
+export async function generateStaticParams({ params: { category } }) {
+  const products = await fetch(
+    `https://.../products?category=${category}`
+  ).then((res) => res.json())
+
+  return products.map((product) => ({
+    product: product.id,
+  }))
+}
+
+export default function Page({ params }) {
+  // ...
+}
+```
+
+注意，params 参数可以同步访问，并且只包含父段的 params。
+
+对于类型补全，你可以结合使用 TypeScript 的 `Awaited` 辅助类型和 [`Page Props helper`](/docs/app/api-reference/file-conventions/page#page-props-helper) 或 [`Layout Props helper`](/docs/app/api-reference/file-conventions/layout#layout-props-helper)：
+
+```ts filename="app/products/[category]/[product]/page.tsx" switcher
+export async function generateStaticParams({
+  params: { category },
+}: {
+  params: Awaited<LayoutProps<'/products/[category]'>['params']>
+}) {
+  const products = await fetch(
+    `https://.../products?category=${category}`
+  ).then((res) => res.json())
+
+  return products.map((product) => ({
+    product: product.id,
+  }))
+}
+```
+
+> **值得注意的是**：`fetch` 请求会自动为所有以 `generate` 为前缀的函数、Layouts、Pages 和 Server Components 中的相同数据[记忆化](/docs/app/guides/caching#request-memoization)。如果 `fetch` 不可用，可以[使用](/docs/app/guides/caching#react-cache-function) React [`cache`](/docs/app/guides/caching#react-cache-function)。
+
+## 版本历史
+
+| 版本      | 变更                      |
+| --------- | ---------------------------------- |
+| `v13.0.0` | 引入 `generateStaticParams`。 |

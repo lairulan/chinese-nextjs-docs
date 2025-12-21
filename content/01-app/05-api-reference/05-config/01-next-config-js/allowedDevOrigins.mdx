@@ -1,0 +1,19 @@
+---
+title: allowedDevOrigins
+description: 使用 `allowedDevOrigins` 配置可以请求开发服务器的其他源。
+slug: /docs/app/api-reference/config/next-config-js/allowedDevOrigins
+---
+
+{/* 此文档的内容在 app 和 pages 路由器之间共享。你可以使用 `<PagesOnly>Content</PagesOnly>` 组件添加特定于 Pages 路由器的内容。任何共享内容不应包装在组件中。 */}
+
+Next.js 在开发过程中不会自动阻止跨源请求，但在未来的 Next.js 主要版本中，默认情况下会进行阻止，以防止未经授权请求开发模式中可用的内部资源/端点。
+
+要配置 Next.js 应用程序允许来自初始化服务器的主机名（默认为 `localhost`）以外的源的请求，你可以使用 `allowedDevOrigins` 配置选项。
+
+`allowedDevOrigins` 允许你设置可在开发模式中使用的其他源。例如，要使用 `local-origin.dev` 而不仅仅是 `localhost`，打开 `next.config.js` 并添加 `allowedDevOrigins` 配置：
+
+```js filename="next.config.js"
+module.exports = {
+  allowedDevOrigins: ['local-origin.dev', '*.local-origin.dev'],
+}
+```

@@ -1,0 +1,73 @@
+"use client";
+
+import React, { useRef, useState, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
+import Link from "next/link";
+import { DocSearchModal, useDocSearchKeyboardEvents } from "@docsearch/react";
+import "@docsearch/css";
+import "./docSearch.css";
+import { IoIosSearch } from "react-icons/io";
+import { docSearchConfig } from "@/components/DocSearch/config";
+
+export default function CustomDocSearch() {
+  const { appId, indexName, apiKey } = docSearchConfig.docSearch;
+  const [isOpen, setIsOpen] = useState(false);
+  const [isMac, setIsMac] = useState(false);
+  const searchButtonRef = useRef<HTMLButtonElement>(null);
+
+  const onOpen = useCallback(() => {
+    setIsOpen(true);
+  }, [setIsOpen]);
+
+  const onClose = useCallback(() => {
+    setIsOpen(false);
+  }, [setIsOpen]);
+
+  useDocSearchKeyboardEvents({
+    isOpen,
+    onOpen,
+    onClose,
+    searchButtonRef,
+  });
+
+  // 添加检测操作系统的效果
+  useEffect(() => {
+    setIsMac(navigator.platform.toUpperCase().indexOf("MAC") >= 0);
+  }, []);
+
+  return (
+    <>
+      <button className="docSearch-btn" data-variant="large" onClick={onOpen}>
+        搜索文档<kbd>{isMac ? "⌘K" : "Ctrl+K"}</kbd>
+      </button>
+      <button className="docSearch-btn" data-variant="medium" onClick={onOpen}>
+        搜索<kbd>{isMac ? "⌘K" : "Ctrl+K"}</kbd>
+      </button>
+      <button
+        className="docSearch-btn mr-2 hover:bg-accent border border-gray-300"
+        data-variant="small"
+        onClick={onOpen}
+      >
+        <IoIosSearch />
+      </button>
+      {isOpen &&
+        createPortal(
+          <DocSearchModal
+            initialScrollY={window.scrollY}
+            appId={appId}
+            apiKey={apiKey}
+            indexName={indexName}
+            onClose={onClose}
+            placeholder="搜索文档"
+            searchParameters={{}}
+            hitComponent={({ hit, children }) => (
+              <Link href={hit.url} prefetch={false}>
+                {children}
+              </Link>
+            )}
+          />,
+          document.body
+        )}
+    </>
+  );
+}

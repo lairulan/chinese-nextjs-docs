@@ -1,0 +1,217 @@
+---
+title: Route Segment Config
+description: 了解如何为 Next.js 路由段配置选项。
+slug: /docs/app/api-reference/file-conventions/route-segment-config
+---
+
+> **值得注意的是**：
+>
+> - 如果 [`cacheComponents`](/docs/app/api-reference/config/next-config-js/cacheComponents) 标志启用，本页面列出的选项将被禁用，并最终会在未来被弃用。
+> - 路由段选项仅在服务器组件页面、布局或路由处理程序中生效。
+> - `generateStaticParams` 不能在 `'use client'` 文件中使用。
+
+路由段选项允许你通过直接导出以下变量来配置 [Page](/docs/app/api-reference/file-conventions/layout)、[Layout](/docs/app/api-reference/file-conventions/layout) 或 [Route Handler](/docs/app/api-reference/file-conventions/route) 的行为：
+
+| 选项                                  | 类型                                                                                                                      | 默认值                    |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| [`dynamic`](#dynamic)                 | `'auto' \| 'force-dynamic' \| 'error' \| 'force-static'`                                                                  | `'auto'`                   |
+| [`dynamicParams`](#dynamicparams)     | `boolean`                                                                                                                 | `true`                     |
+| [`revalidate`](#revalidate)           | `false \| 0 \| number`                                                                                                    | `false`                    |
+| [`fetchCache`](#fetchcache)           | `'auto' \| 'default-cache' \| 'only-cache' \| 'force-cache' \| 'force-no-store' \| 'default-no-store' \| 'only-no-store'` | `'auto'`                   |
+| [`runtime`](#runtime)                 | `'nodejs' \| 'edge'`                                                                                                      | `'nodejs'`                 |
+| [`preferredRegion`](#preferredregion) | `'auto' \| 'global' \| 'home' \| string \| string[]`                                                                      | `'auto'`                   |
+| [`maxDuration`](#maxduration)         | `number`                                                                                                                  | 由部署平台设置 |
+
+## 选项
+
+### `dynamic`
+
+更改布局或页面的动态行为，使其完全静态或完全动态。
+
+```tsx filename="layout.tsx | page.tsx | route.ts" switcher
+export const dynamic = 'auto'
+// 'auto' | 'force-dynamic' | 'error' | 'force-static'
+```
+
+```js filename="layout.js | page.js | route.js" switcher
+export const dynamic = 'auto'
+// 'auto' | 'force-dynamic' | 'error' | 'force-static'
+```
+
+> **值得注意的是**：`app` 目录中的新模型倾向于在 `fetch` 请求级别进行细粒度的缓存控制，而不是 `pages` 目录中在页面级别使用 `getServerSideProps` 和 `getStaticProps` 的二元全有或全无模型。`dynamic` 选项是一种回退到先前模型的便捷方式，并提供了更简单的迁移路径。
+
+- **`'auto'`**（默认）：默认选项，尽可能多地缓存，而不阻止任何组件选择动态行为。
+- **`'force-dynamic'`**：强制 [动态渲染](/docs/app/guides/caching#dynamic-rendering)，这将导致路由在请求时为每个用户渲染。此选项等同于：
+  - 将布局或页面中每个 `fetch()` 请求的选项设置为 `{ cache: 'no-store', next: { revalidate: 0 } }`。
+  - 将段配置设置为 `export const fetchCache = 'force-no-store'`
+
+- **`'error'`**：强制静态渲染并缓存布局或页面的数据，如果任何组件使用 [动态 API](/docs/app/guides/caching#dynamic-rendering) 或未缓存的数据，则会导致错误。此选项等同于：
+  - `pages` 目录中的 `getStaticProps()`。
+  - 将布局或页面中每个 `fetch()` 请求的选项设置为 `{ cache: 'force-cache' }`。
+  - 将段配置设置为 `fetchCache = 'only-cache'`。
+- **`'force-static'`**：强制静态渲染并缓存布局或页面的数据，方法是强制 [`cookies`](/docs/app/api-reference/functions/cookies)、[`headers()`](/docs/app/api-reference/functions/headers) 和 [`useSearchParams()`](/docs/app/api-reference/functions/use-search-params) 返回空值。可以在使用 `force-static` 渲染的页面或布局中使用 [`revalidate`](#revalidate)、[`revalidatePath`](/docs/app/api-reference/functions/revalidatePath) 或 [`revalidateTag`](/docs/app/api-reference/functions/revalidateTag)。
+
+> **值得注意的是**：
+>
+> - 关于[如何迁移](/docs/app/guides/migrating/app-router-migration#step-6-migrating-data-fetching-methods)从 `getServerSideProps` 和 `getStaticProps` 到 `dynamic: 'force-dynamic'` 和 `dynamic: 'error'` 的说明可以在[升级指南](/docs/app/guides/migrating/app-router-migration#step-6-migrating-data-fetching-methods)中找到。
+
+### `dynamicParams`
+
+控制访问未通过 [generateStaticParams](/docs/app/api-reference/functions/generate-static-params) 生成的动态段时会发生什么。
+
+```tsx filename="layout.tsx | page.tsx" switcher
+export const dynamicParams = true // true | false
+```
+
+```js filename="layout.js | page.js | route.js" switcher
+export const dynamicParams = true // true | false
+```
+
+- **`true`**（默认）：未包含在 `generateStaticParams` 中的动态段会按需生成。
+- **`false`**：未包含在 `generateStaticParams` 中的动态段将返回 404。
+
+> **值得注意的是**：
+>
+> - 此选项替代了 `pages` 目录中 `getStaticPaths` 的 `fallback: true | false | blocking` 选项。
+> - 要在首次访问时静态渲染所有路径，你需要在 `generateStaticParams` 中返回一个空数组或使用 `export const dynamic = 'force-static'`。
+> - 当 `dynamicParams = true` 时，该段使用 [流式服务器渲染](/docs/app/getting-started/linking-and-navigating#streaming)。
+
+### `revalidate`
+
+设置布局或页面的默认重新验证时间。此选项不会覆盖单个 `fetch` 请求设置的 `revalidate` 值。
+
+```tsx filename="layout.tsx | page.tsx | route.ts" switcher
+export const revalidate = false
+// false | 0 | number
+```
+
+```js filename="layout.js | page.js | route.js" switcher
+export const revalidate = false
+// false | 0 | number
+```
+
+- **`false`**（默认）：缓存任何将其 `cache` 选项设置为 `'force-cache'` 或在使用 [动态 API](/docs/app/guides/caching#dynamic-rendering) 之前发现的 `fetch` 请求的默认启发式方法。语义上等同于 `revalidate: Infinity`，这实际上意味着资源应该被无限期缓存。单个 `fetch` 请求仍然可以使用 `cache: 'no-store'` 或 `revalidate: 0` 来避免被缓存并使路由动态渲染。或者将 `revalidate` 设置为低于路由默认值的正数，以增加路由的重新验证频率。
+- **`0`**：确保布局或页面始终[动态渲染](/docs/app/guides/caching#dynamic-rendering)，即使没有发现动态 API 或未缓存的数据获取。此选项将未设置 `cache` 选项的 `fetch` 请求的默认值更改为 `'no-store'`，但保留选择 `'force-cache'` 或使用正数 `revalidate` 的 `fetch` 请求不变。
+- **`number`**：（以秒为单位）将布局或页面的默认重新验证频率设置为 `n` 秒。
+
+> **值得注意的是**：
+>
+> - revalidate 值需要是静态可分析的。例如 `revalidate = 600` 是有效的，但 `revalidate = 60 * 10` 无效。
+> - 使用 `runtime = 'edge'` 时，revalidate 值不可用。
+> - 在开发环境中，页面_始终_按需渲染且永远不会被缓存。这使你可以立即看到更改，而无需等待重新验证期结束。
+
+#### 重新验证频率
+
+- 单个路由的每个布局和页面中最低的 `revalidate` 将决定_整个_路由的重新验证频率。这确保子页面与其父布局一样频繁地重新验证。
+- 单个 `fetch` 请求可以设置低于路由默认 `revalidate` 的值，以增加整个路由的重新验证频率。这允许你根据某些条件动态选择对某些路由进行更频繁的重新验证。
+
+### `fetchCache`
+
+<details>
+  <summary>这是一个高级选项，只有在你特别需要覆盖默认行为时才应使用。</summary>
+
+默认情况下，Next.js **将缓存**在使用任何 [动态 API](/docs/app/guides/caching#dynamic-rendering) **之前**可访问的任何 `fetch()` 请求，**不会缓存**在使用动态 API **之后**发现的 `fetch` 请求。
+
+`fetchCache` 允许你覆盖布局或页面中所有 `fetch` 请求的默认 `cache` 选项。
+
+```tsx filename="layout.tsx | page.tsx | route.ts" switcher
+export const fetchCache = 'auto'
+// 'auto' | 'default-cache' | 'only-cache'
+// 'force-cache' | 'force-no-store' | 'default-no-store' | 'only-no-store'
+```
+
+```js filename="layout.js | page.js | route.js" switcher
+export const fetchCache = 'auto'
+// 'auto' | 'default-cache' | 'only-cache'
+// 'force-cache' | 'force-no-store' | 'default-no-store' | 'only-no-store'
+```
+
+- **`'auto'`**（默认）：在动态 API 之前使用它们提供的 `cache` 选项缓存 `fetch` 请求，并且不缓存动态 API 之后的 `fetch` 请求的默认选项。
+- **`'default-cache'`**：允许将任何 `cache` 选项传递给 `fetch`，但如果未提供选项，则将 `cache` 选项设置为 `'force-cache'`。这意味着即使动态 API 之后的 `fetch` 请求也被视为静态。
+- **`'only-cache'`**：通过将默认值更改为 `cache: 'force-cache'`（如果未提供选项）来确保所有 `fetch` 请求选择缓存，并在任何 `fetch` 请求使用 `cache: 'no-store'` 时导致错误。
+- **`'force-cache'`**：通过将所有 `fetch` 请求的 `cache` 选项设置为 `'force-cache'` 来确保所有 `fetch` 请求选择缓存。
+- **`'default-no-store'`**：允许将任何 `cache` 选项传递给 `fetch`，但如果未提供选项，则将 `cache` 选项设置为 `'no-store'`。这意味着即使动态 API 之前的 `fetch` 请求也被视为动态。
+- **`'only-no-store'`**：通过将默认值更改为 `cache: 'no-store'`（如果未提供选项）来确保所有 `fetch` 请求退出缓存，并在任何 `fetch` 请求使用 `cache: 'force-cache'` 时导致错误
+- **`'force-no-store'`**：通过将所有 `fetch` 请求的 `cache` 选项设置为 `'no-store'` 来确保所有 `fetch` 请求退出缓存。这会强制所有 `fetch` 请求在每次请求时重新获取，即使它们提供了 `'force-cache'` 选项。
+
+#### 跨路由段行为
+
+- 单个路由的每个布局和页面中设置的任何选项都需要相互兼容。
+  - 如果同时提供 `'only-cache'` 和 `'force-cache'`，则 `'force-cache'` 优先。如果同时提供 `'only-no-store'` 和 `'force-no-store'`，则 `'force-no-store'` 优先。force 选项会改变整个路由的行为，因此单个带有 `'force-*'` 的段将防止 `'only-*'` 导致的任何错误。
+  - `'only-*'` 和 `'force-*'` 选项的目的是保证整个路由要么完全静态，要么完全动态。这意味着：
+    - 单个路由中不允许同时使用 `'only-cache'` 和 `'only-no-store'`。
+    - 单个路由中不允许同时使用 `'force-cache'` 和 `'force-no-store'`。
+  - 如果子级提供 `'auto'` 或 `'*-cache'`，父级不能提供 `'default-no-store'`，因为这可能使同一个 fetch 具有不同的行为。
+- 通常建议将共享的父布局保留为 `'auto'`，并在子段分歧的地方自定义选项。
+
+</details>
+
+### `runtime`
+
+我们建议使用 Node.js 运行时来渲染你的应用程序。此选项不能在 [Proxy](/docs/app/api-reference/file-conventions/proxy) 中使用。
+
+> **值得注意的是**：使用 `runtime: 'edge'` 对于 Cache Components 是不支持的。
+
+```tsx filename="layout.tsx | page.tsx | route.ts" switcher
+export const runtime = 'nodejs'
+// 'nodejs' | 'edge'
+```
+
+```js filename="layout.js | page.js | route.js" switcher
+export const runtime = 'nodejs'
+// 'nodejs' | 'edge'
+```
+
+- **`'nodejs'`**（默认）
+- **`'edge'`**
+
+### `preferredRegion`
+
+```tsx filename="layout.tsx | page.tsx | route.ts" switcher
+export const preferredRegion = 'auto'
+// 'auto' | 'global' | 'home' | ['iad1', 'sfo1']
+```
+
+```js filename="layout.js | page.js | route.js" switcher
+export const preferredRegion = 'auto'
+// 'auto' | 'global' | 'home' | ['iad1', 'sfo1']
+```
+
+对 `preferredRegion` 的支持以及支持的区域取决于你的部署平台。
+
+> **值得注意的是**：
+>
+> - 如果未指定 `preferredRegion`，它将继承最近的父布局的选项。
+> - 根布局默认为 `all` 区域。
+
+### `maxDuration`
+
+默认情况下，Next.js 不限制服务器端逻辑的执行（渲染页面或处理 API）。
+部署平台可以使用 Next.js 构建输出中的 `maxDuration` 来添加特定的执行限制。
+
+**注意**：此设置需要 Next.js `13.4.10` 或更高版本。
+
+```tsx filename="layout.tsx | page.tsx | route.ts" switcher
+export const maxDuration = 5
+```
+
+```js filename="layout.js | page.js | route.js" switcher
+export const maxDuration = 5
+```
+
+> **值得注意的是**：
+>
+> - 如果使用 [Server Actions](/docs/app/getting-started/updating-data)，请在页面级别设置 `maxDuration` 以更改页面上使用的所有 Server Actions 的默认超时时间。
+
+### `generateStaticParams`
+
+`generateStaticParams` 函数可以与[动态路由段](/docs/app/api-reference/file-conventions/dynamic-routes)结合使用，以定义将在构建时静态生成而不是在请求时按需生成的路由段参数列表。
+
+有关更多详细信息，请参阅 [API 参考](/docs/app/api-reference/functions/generate-static-params)。
+
+## 版本历史
+
+| 版本      |                                                                                                                                                                                                                |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `v16.0.0`    | `export const experimental_ppr = true` 已移除。提供了一个 [codemod](/docs/app/guides/upgrading/codemods#remove-experimental_ppr-route-segment-config-from-app-router-pages-and-layouts)。                  |
+| `v15.0.0-RC` | `export const runtime = "experimental-edge"` 已弃用。提供了一个 [codemod](/docs/app/guides/upgrading/codemods#transform-app-router-route-segment-config-runtime-value-from-experimental-edge-to-edge)。 |

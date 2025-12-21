@@ -1,0 +1,17 @@
+---
+title: reactMaxHeadersLength
+slug: /docs/app/api-reference/config/next-config-js/reactMaxHeadersLength
+description: React 发出并添加到响应中的 headers 的最大长度。
+---
+
+在静态渲染过程中，React 可以发出可添加到响应中的 headers。这些 headers 可以用来提高性能，使浏览器能够预加载字体、脚本和样式表等资源。默认值是 `6000`，但你可以在 `next.config.js` 中通过配置 `reactMaxHeadersLength` 选项来覆盖这个值：
+
+```js filename="next.config.js"
+module.exports = {
+  reactMaxHeadersLength: 1000,
+}
+```
+
+> **值得注意的是**：这个选项仅在 App Router 中可用。
+
+根据浏览器和服务器之间代理的类型，headers 可能会被截断。例如，如果你使用的反向代理不支持长 headers，你应该设置一个较低的值来确保 headers 不会被截断。

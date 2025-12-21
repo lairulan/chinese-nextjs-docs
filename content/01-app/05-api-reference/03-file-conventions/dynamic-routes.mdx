@@ -1,0 +1,175 @@
+---
+title: 动态路由段
+nav_title: 动态段
+description: 动态路由段可用于从动态数据以编程方式生成路由段。
+related:
+  title: 下一步
+  description: 关于下一步该做什么，我们推荐以下章节
+  links:
+    - app/api-reference/functions/generate-static-params
+slug: /docs/app/api-reference/file-conventions/dynamic-routes
+---
+
+当你不能提前知道确切的路由段名称，并且想从动态数据创建路由时，你可以使用在请求时填充或在构建时预渲染的动态段。
+
+## 约定
+
+动态段可以通过将文件夹名称包裹在方括号中来创建：`[folderName]`。例如，一个博客可以包含以下路由 `app/blog/[slug]/page.js`，其中 `[slug]` 是博客文章的动态段。
+
+```tsx filename="app/blog/[slug]/page.tsx" switcher
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}) {
+  const { slug } = await params
+  return <div>My Post: {slug}</div>
+}
+```
+
+```jsx filename="app/blog/[slug]/page.js" switcher
+export default async function Page({ params }) {
+  const { slug } = await params
+  return <div>My Post: {slug}</div>
+}
+```
+
+动态段作为 `params` prop 传递给 [`layout`](/docs/app/api-reference/file-conventions/layout)、[`page`](/docs/app/api-reference/file-conventions/page)、[`route`](/docs/app/api-reference/file-conventions/route) 和 [`generateMetadata`](/docs/app/api-reference/functions/generate-metadata#generatemetadata-function) 函数。
+
+| 路由                      | 示例 URL    | `params`        |
+| ------------------------- | ----------- | --------------- |
+| `app/blog/[slug]/page.js` | `/blog/a`   | `{ slug: 'a' }` |
+| `app/blog/[slug]/page.js` | `/blog/b`   | `{ slug: 'b' }` |
+| `app/blog/[slug]/page.js` | `/blog/c`   | `{ slug: 'c' }` |
+
+### 在客户端组件中
+
+在客户端组件 **page** 中，可以使用 [`use`](https://react.dev/reference/react/use) hook 从 props 访问动态段。
+
+```tsx filename="app/blog/[slug]/page.tsx" switcher
+'use client'
+import { use } from 'react'
+
+export default function BlogPostPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}) {
+  const { slug } = use(params)
+
+  return (
+    <div>
+      <p>{slug}</p>
+    </div>
+  )
+}
+```
+
+```jsx filename="app/blog/[slug]/page.js" switcher
+'use client'
+import { use } from 'react'
+import { useParams } from 'next/navigation'
+
+export default function BlogPostPage({ params }) {
+  const { slug } = use(params)
+
+  return (
+    <div>
+      <p>{slug}</p>
+    </div>
+  )
+}
+```
+
+或者，客户端组件可以使用 [`useParams`](/docs/app/api-reference/functions/use-params) hook 在客户端组件树的任何位置访问 `params`。
+
+### 捕获所有段
+
+通过在方括号内添加省略号 `[...folderName]`，动态段可以扩展为**捕获所有**后续段。
+
+例如，`app/shop/[...slug]/page.js` 将匹配 `/shop/clothes`，还将匹配 `/shop/clothes/tops`、`/shop/clothes/tops/t-shirts` 等。
+
+| 路由                         | 示例 URL      | `params`                    |
+| ---------------------------- | ------------- | --------------------------- |
+| `app/shop/[...slug]/page.js` | `/shop/a`     | `{ slug: ['a'] }`           |
+| `app/shop/[...slug]/page.js` | `/shop/a/b`   | `{ slug: ['a', 'b'] }`      |
+| `app/shop/[...slug]/page.js` | `/shop/a/b/c` | `{ slug: ['a', 'b', 'c'] }` |
+
+### 可选捕获所有段
+
+通过将参数包含在双方括号中 `[[...folderName]]`，捕获所有段可以变为**可选**的。
+
+例如，`app/shop/[[...slug]]/page.js` 除了匹配 `/shop/clothes`、`/shop/clothes/tops`、`/shop/clothes/tops/t-shirts` 之外，**还**将匹配 `/shop`。
+
+**捕获所有**段和**可选捕获所有**段之间的区别在于，使用可选捕获所有段时，不带参数的路由也会被匹配（上例中的 `/shop`）。
+
+| 路由                           | 示例 URL      | `params`                    |
+| ------------------------------ | ------------- | --------------------------- |
+| `app/shop/[[...slug]]/page.js` | `/shop`       | `{ slug: undefined }`       |
+| `app/shop/[[...slug]]/page.js` | `/shop/a`     | `{ slug: ['a'] }`           |
+| `app/shop/[[...slug]]/page.js` | `/shop/a/b`   | `{ slug: ['a', 'b'] }`      |
+| `app/shop/[[...slug]]/page.js` | `/shop/a/b/c` | `{ slug: ['a', 'b', 'c'] }` |
+
+### TypeScript
+
+使用 TypeScript 时，你可以根据配置的路由段为 `params` 添加类型——使用 [`PageProps<'/route'>`](/docs/app/api-reference/file-conventions/page#page-props-helper)、[`LayoutProps<'/route'>`](/docs/app/api-reference/file-conventions/layout#layout-props-helper) 或 [`RouteContext<'/route'>`](/docs/app/api-reference/file-conventions/route#route-context-helper) 分别为 `page`、`layout` 和 `route` 中的 `params` 添加类型。
+
+路由 `params` 值的类型为 `string`、`string[]` 或 `undefined`（对于可选捕获所有段），因为它们的值在运行时之前是未知的。用户可以在地址栏中输入任何 URL，这些宽泛的类型有助于确保你的应用程序代码处理所有这些可能的情况。
+
+| 路由                                | `params` 类型定义                        |
+| ----------------------------------- | ---------------------------------------- |
+| `app/blog/[slug]/page.js`           | `{ slug: string }`                       |
+| `app/shop/[...slug]/page.js`        | `{ slug: string[] }`                     |
+| `app/shop/[[...slug]]/page.js`      | `{ slug?: string[] }`                    |
+| `app/[categoryId]/[itemId]/page.js` | `{ categoryId: string, itemId: string }` |
+
+如果你正在处理一个 `params` 只能具有固定数量有效值的路由，例如具有已知语言代码集的 `[locale]` 参数，你可以使用运行时验证来处理用户可能输入的任何无效参数，并让应用程序的其余部分使用已知集合中的更窄类型。
+
+```tsx filename="/app/[locale]/page.tsx"
+import { notFound } from 'next/navigation'
+import type { Locale } from '@i18n/types'
+import { isValidLocale } from '@i18n/utils'
+
+function assertValidLocale(value: string): asserts value is Locale {
+  if (!isValidLocale(value)) notFound()
+}
+
+export default async function Page(props: PageProps<'/[locale]'>) {
+  const { locale } = await props.params // locale 的类型为 string
+  assertValidLocale(locale)
+  // locale 现在的类型为 Locale
+}
+```
+
+## 行为
+
+- 由于 `params` prop 是一个 promise，你必须使用 `async`/`await` 或 React 的 use 函数来访问值。
+  - 在版本 14 及更早版本中，`params` 是一个同步 prop。为了帮助向后兼容，在 Next.js 15 中你仍然可以同步访问它，但此行为将在未来被弃用。
+
+## 示例
+
+### 使用 `generateStaticParams`
+
+[`generateStaticParams`](/docs/app/api-reference/functions/generate-static-params) 函数可用于在构建时[静态生成](/docs/app/guides/caching#static-rendering)路由，而不是在请求时按需生成。
+
+```tsx filename="app/blog/[slug]/page.tsx" switcher
+export async function generateStaticParams() {
+  const posts = await fetch('https://.../posts').then((res) => res.json())
+
+  return posts.map((post) => ({
+    slug: post.slug,
+  }))
+}
+```
+
+```jsx filename="app/blog/[slug]/page.js" switcher
+export async function generateStaticParams() {
+  const posts = await fetch('https://.../posts').then((res) => res.json())
+
+  return posts.map((post) => ({
+    slug: post.slug,
+  }))
+}
+```
+
+在 `generateStaticParams` 函数内使用 `fetch` 时，请求会[自动去重](/docs/app/guides/caching#request-memoization)。这避免了对相同数据进行多次网络调用，Layouts、Pages 和其他 `generateStaticParams` 函数，从而加快构建时间。

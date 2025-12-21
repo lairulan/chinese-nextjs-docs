@@ -1,0 +1,67 @@
+---
+title: How to configure Babel in Next.js
+nav_title: Babel
+description: 在 Next.js 中扩展自己的配置来扩展 babel 预设。
+slug: /docs/pages/guides/babel
+---
+
+<details>
+  <summary>示例</summary>
+
+- [自定义 babel 配置](https://github.com/vercel/next.js/tree/canary/examples/with-custom-babel-config)
+
+</details>
+
+Next.js 为你的应用程序包含了 `next/babel` 预设，其中包含编译 React 应用程序和服务器端代码所需的一切。但如果你想扩展默认的 Babel 配置，这也是可能的。
+
+## 添加预设和插件
+
+首先，你只需要在项目的根目录中定义一个 `.babelrc` 文件（或 `babel.config.js`）。如果找到这样的文件，它将被视为_真实来源_，因此它需要同时定义 Next.js 所需的内容，即 `next/babel` 预设。
+
+以下是一个 `.babelrc` 文件示例：
+
+```json filename=".babelrc"
+{
+  "presets": ["next/babel"],
+  "plugins": []
+}
+```
+
+你可以[查看这个文件](https://github.com/vercel/next.js/blob/canary/packages/next/src/build/babel/preset.ts)了解 `next/babel` 包含的预设。
+
+要**不配置**就添加预设/插件，你可以这样做：
+
+```json filename=".babelrc"
+{
+  "presets": ["next/babel"],
+  "plugins": ["@babel/plugin-proposal-do-expressions"]
+}
+```
+
+## 自定义预设和插件
+
+要**使用自定义配置**添加预设/插件，请在 `next/babel` 预设上这样做：
+
+```json filename=".babelrc"
+{
+  "presets": [
+    [
+      "next/babel",
+      {
+        "preset-env": {},
+        "transform-runtime": {},
+        "styled-jsx": {},
+        "class-properties": {}
+      }
+    ]
+  ],
+  "plugins": []
+}
+```
+
+要了解每个配置的可用选项，请访问 babel 的[文档](https://babeljs.io/docs/)网站。
+
+> **值得注意的是**：
+>
+> - Next.js 使用[**当前**的 Node.js 版本](https://github.com/nodejs/release#release-schedule)进行服务器端编译。
+> - `"preset-env"` 上的 `modules` 选项应保持为 `false`，否则 webpack 代码分割将被关闭。

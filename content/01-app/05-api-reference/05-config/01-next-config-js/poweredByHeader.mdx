@@ -1,0 +1,15 @@
+---
+title: poweredByHeader
+slug: /docs/app/api-reference/config/next-config-js/poweredByHeader
+description: Next.js 默认会添加 `x-powered-by` 头。在此了解如何选择退出。
+---
+
+{/* 此文档内容在应用和页面路由器之间共享。你可以使用 `<PagesOnly>Content</PagesOnly>` 组件添加特定于页面路由器的内容。任何共享内容不应包装在组件中。 */}
+
+默认情况下，Next.js 会添加 `x-powered-by` 头。要选择退出，请打开 `next.config.js` 并禁用 `poweredByHeader` 配置：
+
+```js filename="next.config.js"
+module.exports = {
+  poweredByHeader: false,
+};
+```

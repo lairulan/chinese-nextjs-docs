@@ -1,0 +1,26 @@
+---
+title: typescript
+slug: /docs/app/api-reference/config/next-config-js/typescript
+description: Next.js 默认会报告 TypeScript 错误。在这里了解如何选择退出此行为。
+---
+
+{/* 此文档的内容在 app 路由和 pages 路由之间共享。你可以使用 `<PagesOnly>Content</PagesOnly>` 组件来添加仅适用于 Pages 路由的内容。任何共享内容都不应该被组件包裹。*/}
+
+当你的项目中存在 TypeScript 错误时，Next.js 会使你的**生产构建** (`next build`) 失败。
+
+如果你希望 Next.js 在应用存在错误的情况下仍然生成生产代码（这是有风险的），你可以禁用内置的类型检查步骤。
+
+如果禁用了类型检查，请确保你在构建或部署过程中运行类型检查，否则这可能会非常危险。
+
+打开 `next.config.js` 并在 `typescript` 配置中启用 `ignoreBuildErrors` 选项：
+
+```js filename="next.config.js"
+module.exports = {
+  typescript: {
+    // !! 警告 !!
+    // 允许在项目有类型错误的情况下危险地完成生产构建。
+    // !! 警告 !!
+    ignoreBuildErrors: true,
+  },
+}
+```

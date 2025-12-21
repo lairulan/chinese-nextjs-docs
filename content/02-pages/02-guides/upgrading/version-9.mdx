@@ -1,0 +1,227 @@
+---
+title: How to upgrade to version 9
+nav_title: Version 9
+description: 将你的 Next.js 应用从版本 8 升级到版本 9。
+slug: /docs/pages/guides/upgrading/version-9
+---
+
+要升级到版本 9，请运行以下命令：
+
+```bash filename="Terminal"
+npm i next@9
+```
+
+```bash filename="Terminal"
+yarn add next@9
+```
+
+```bash filename="Terminal"
+pnpm up next@9
+```
+
+```bash filename="Terminal"
+bun add next@9
+```
+
+> **值得注意的是**： 如果你使用 TypeScript，请确保同时将 `@types/react` 和 `@types/react-dom` 升级到对应版本。
+
+## 检查你的自定义 App 文件（`pages/_app.js`）
+
+如果你之前复制了[自定义 `<App>`](/docs/pages/building-your-application/routing/custom-app) 示例，你可能可以移除 `getInitialProps`。
+
+从 `pages/_app.js` 中移除 `getInitialProps`（如果可能）对于利用 Next.js 新功能很重要！
+
+以下 `getInitialProps` 没有任何作用，可以被移除：
+
+```js
+class MyApp extends App {
+  // 移除我，我没有任何作用！
+  static async getInitialProps({ Component, ctx }) {
+    let pageProps = {}
+
+    if (Component.getInitialProps) {
+      pageProps = await Component.getInitialProps(ctx)
+    }
+
+    return { pageProps }
+  }
+
+  render() {
+    // ... 等等
+  }
+}
+```
+
+## 破坏性变更
+
+### `@zeit/next-typescript` 不再需要
+
+Next.js 现在将忽略 `@zeit/next-typescript` 的使用并警告你移除它。请从你的 `next.config.js` 中移除这个插件。
+
+从你的自定义 `.babelrc`（如果存在）中移除对 `@zeit/next-typescript/babel` 的引用。
+
+还应该从你的 `next.config.js` 中移除 [`fork-ts-checker-webpack-plugin`](https://github.com/Realytics/fork-ts-checker-webpack-plugin/issues) 的使用。
+
+TypeScript 定义与 `next` 包一起发布，所以你需要卸载 `@types/next`，因为它们会冲突。
+
+以下类型有所不同：
+
+> 这个列表是由社区创建来帮助你升级的，如果你发现其他差异，请向这个列表发送 pull-request 以帮助其他用户。
+
+从：
+
+```tsx
+import { NextContext } from 'next'
+import { NextAppContext, DefaultAppIProps } from 'next/app'
+import { NextDocumentContext, DefaultDocumentIProps } from 'next/document'
+```
+
+变为：
+
+```tsx
+import { NextPageContext } from 'next'
+import { AppContext, AppInitialProps } from 'next/app'
+import { DocumentContext, DocumentInitialProps } from 'next/document'
+```
+
+### `config` 键现在是页面上的导出
+
+你不能再从页面导出名为 `config` 的自定义变量（即 `export { config }` / `export const config ...`）。
+这个导出变量现在用于指定页面级别的 Next.js 配置，如选择加入 AMP 和 API 路由功能。
+
+你必须将非 Next.js 用途的 `config` 导出重命名为其他名称。
+
+### `next/dynamic` 在加载时默认不再呈现 "loading..."
+
+动态组件在加载时默认不会呈现任何内容。你仍然可以通过设置 `loading` 属性来自定义这个行为：
+
+```jsx
+import dynamic from 'next/dynamic'
+
+const DynamicComponentWithCustomLoading = dynamic(
+  () => import('../components/hello2'),
+  {
+    loading: () => <p>Loading</p>,
+  }
+)
+```
+
+### `withAmp` 已被移除，取而代之的是导出的配置对象
+
+Next.js 现在有了页面级配置的概念，所以为了一致性，`withAmp` 高阶组件已被移除。
+
+这一变更可以**通过在 Next.js 项目根目录运行以下命令自动迁移：** 
+
+```bash filename="Terminal"
+curl -L https://github.com/vercel/next-codemod/archive/master.tar.gz | tar -xz --strip=2 next-codemod-master/transforms/withamp-to-config.js npx jscodeshift -t ./withamp-to-config.js pages/**/*.js
+```
+
+要手动执行此迁移，或查看代码修改器将产生的结果，请参见下文：
+
+**之前**
+
+```jsx
+import { withAmp } from 'next/amp'
+
+function Home() {
+  return <h1>My AMP Page</h1>
+}
+
+export default withAmp(Home)
+// 或
+export default withAmp(Home, { hybrid: true })
+```
+
+**之后**
+
+```jsx
+export default function Home() {
+  return <h1>My AMP Page</h1>
+}
+
+export const config = {
+  amp: true,
+  // 或
+  amp: 'hybrid',
+}
+```
+
+### `next export` 不再将页面导出为 `index.html`
+
+以前，导出 `pages/about.js` 会生成 `out/about/index.html`。这个行为已更改为生成 `out/about.html`。
+
+你可以通过创建包含以下内容的 `next.config.js` 来恢复到之前的行为：
+
+```js filename="next.config.js"
+module.exports = {
+  trailingSlash: true,
+}
+```
+
+### `pages/api/` 被不同对待
+
+位于 `pages/api/` 中的页面现在被视为 [API 路由](https://nextjs.org/blog/next-9#api-routes)。
+此目录中的页面将不再包含客户端捆绑包。
+
+## 已废弃的功能
+
+### `next/dynamic` 已废弃同时加载多个模块
+
+`next/dynamic` 中同时加载多个模块的功能已被废弃，以更接近 React 的实现（`React.lazy` 和 `Suspense`）。
+
+更新依赖此行为的代码相对简单！我们提供了前后对比的示例来帮助你迁移应用：
+
+**之前**
+
+```jsx
+import dynamic from 'next/dynamic'
+
+const HelloBundle = dynamic({
+  modules: () => {
+    const components = {
+      Hello1: () => import('../components/hello1').then((m) => m.default),
+      Hello2: () => import('../components/hello2').then((m) => m.default),
+    }
+
+    return components
+  },
+  render: (props, { Hello1, Hello2 }) => (
+    <div>
+      <h1>{props.title}</h1>
+      <Hello1 />
+      <Hello2 />
+    </div>
+  ),
+})
+
+function DynamicBundle() {
+  return <HelloBundle title="Dynamic Bundle" />
+}
+
+export default DynamicBundle
+```
+
+**之后**
+
+```jsx
+import dynamic from 'next/dynamic'
+
+const Hello1 = dynamic(() => import('../components/hello1'))
+const Hello2 = dynamic(() => import('../components/hello2'))
+
+function HelloBundle({ title }) {
+  return (
+    <div>
+      <h1>{title}</h1>
+      <Hello1 />
+      <Hello2 />
+    </div>
+  )
+}
+
+function DynamicBundle() {
+  return <HelloBundle title="Dynamic Bundle" />
+}
+
+export default DynamicBundle
+```

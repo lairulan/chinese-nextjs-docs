@@ -1,0 +1,72 @@
+---
+title: logging
+description: 配置在开发模式下运行 Next.js 时如何将数据获取记录到控制台。
+slug: /docs/app/api-reference/config/next-config-js/logging
+---
+
+{/* 此文档的内容在 app 和 pages 路由器之间共享。你可以使用 `<PagesOnly>Content</PagesOnly>` 组件添加特定于 Pages Router 的内容。任何共享内容都不应包含在组件中。 */}
+
+## 选项
+
+### 数据获取
+
+你可以配置在开发模式下运行 Next.js 时记录到控制台的日志级别以及是否记录完整 URL。
+
+目前，`logging` 仅适用于使用 `fetch` API 的数据获取。它尚未应用于 Next.js 内的其他日志。
+
+```js filename="next.config.js"
+module.exports = {
+  logging: {
+    fetches: {
+      fullUrl: true,
+    },
+  },
+}
+```
+
+默认情况下，从 [Server Components HMR 缓存](/docs/app/api-reference/config/next-config-js/serverComponentsHmrCache) 恢复的任何 `fetch` 请求都不会被记录。但是，可以通过将 `logging.fetches.hmrRefreshes` 设置为 `true` 来启用此功能。
+
+```js filename="next.config.js"
+module.exports = {
+  logging: {
+    fetches: {
+      hmrRefreshes: true,
+    },
+  },
+}
+```
+
+### 传入请求
+
+默认情况下，所有传入请求将在开发过程中记录到控制台。你可以使用 `incomingRequests` 选项决定忽略哪些请求。
+由于这仅在开发中记录，此选项不会影响生产构建。
+
+```js filename="next.config.js"
+module.exports = {
+  logging: {
+    incomingRequests: {
+      ignore: [/\api\/v1\/health/],
+    },
+  },
+}
+```
+
+或者你可以通过将 `incomingRequests` 设置为 `false` 来禁用传入请求日志记录。
+
+```js filename="next.config.js"
+module.exports = {
+  logging: {
+    incomingRequests: false,
+  },
+}
+```
+
+### 禁用日志记录
+
+此外，你可以通过将 `logging` 设置为 `false` 来禁用开发日志记录。
+
+```js filename="next.config.js"
+module.exports = {
+  logging: false,
+}
+```

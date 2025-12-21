@@ -1,0 +1,370 @@
+---
+title: ESLint Plugin
+nav_title: ESLint
+description: 学习如何使用和配置 ESLint 插件来捕获 Next.js 应用程序中的常见问题。
+slug: /docs/app/api-reference/config/eslint
+---
+
+{/* The content of this doc is shared between the app and pages router. You can use the `<PagesOnly>Content</PagesOnly>` component to add content that is specific to the Pages Router. Any shared content should not be wrapped in a component. */}
+
+Next.js 提供了一个 ESLint 插件，[`@next/eslint-plugin-next`](https://www.npmjs.com/package/@next/eslint-plugin-next)，已捆绑在基础配置中，可以捕获 Next.js 应用程序中的常见问题。
+
+## 设置 ESLint
+
+使用 ESLint CLI（flat config）快速启用代码检查：
+
+1. 安装 ESLint 和 Next.js 配置：
+
+   ```bash package="pnpm"
+   pnpm add -D eslint eslint-config-next
+   ```
+
+   ```bash package="npm"
+   npm i -D eslint eslint-config-next
+   ```
+
+   ```bash package="yarn"
+   yarn add --dev eslint eslint-config-next
+   ```
+
+   ```bash package="bun"
+   bun add -d eslint eslint-config-next
+   ```
+   
+2. 使用 Next.js 配置创建 `eslint.config.mjs`：
+
+   ```js filename="eslint.config.mjs"
+   import { defineConfig, globalIgnores } from 'eslint/config'
+   import nextVitals from 'eslint-config-next/core-web-vitals'
+
+   const eslintConfig = defineConfig([
+     ...nextVitals,
+     // 覆盖 eslint-config-next 的默认忽略项。
+     globalIgnores([
+       // eslint-config-next 的默认忽略项：
+       '.next/**',
+       'out/**',
+       'build/**',
+       'next-env.d.ts',
+     ]),
+   ])
+
+   export default eslintConfig
+   ```
+
+3. 运行 ESLint：
+
+   ```bash package="pnpm"
+   pnpm exec eslint .
+   ```
+
+   ```bash package="npm"
+   npx eslint .
+   ```
+
+   ```bash package="yarn"
+   yarn eslint .
+   ```
+
+   ```bash package="bun"
+   bunx eslint .
+   ```
+
+## 参考
+
+`eslint-config-next` 中使用了以下 ESLint 插件的推荐规则集：
+
+- [`eslint-plugin-react`](https://www.npmjs.com/package/eslint-plugin-react)
+- [`eslint-plugin-react-hooks`](https://www.npmjs.com/package/eslint-plugin-react-hooks)
+- [`@next/eslint-plugin-next`](https://www.npmjs.com/package/@next/eslint-plugin-next)
+
+### 规则
+
+完整的规则集如下：
+
+| 在推荐配置中启用 | 规则                                                                                                                     | 描述                                                                                                      |
+| :---------------------------: | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+|      <Check size={18} />      | [@next/next/google-font-display](/docs/messages/google-font-display)                                                     | 强制在 Google Fonts 中使用 font-display 行为。                                                                 |
+|      <Check size={18} />      | [@next/next/google-font-preconnect](/docs/messages/google-font-preconnect)                                               | 确保在 Google Fonts 中使用 `preconnect`。                                                                   |
+|      <Check size={18} />      | [@next/next/inline-script-id](/docs/messages/inline-script-id)                                                           | 强制在带有内联内容的 `next/script` 组件上使用 `id` 属性。                                          |
+|      <Check size={18} />      | [@next/next/next-script-for-ga](/docs/messages/next-script-for-ga)                                                       | 在使用 Google Analytics 的内联脚本时，优先使用 `next/script` 组件。                                |
+|      <Check size={18} />      | [@next/next/no-assign-module-variable](/docs/messages/no-assign-module-variable)                                         | 防止对 `module` 变量进行赋值。                                                                     |
+|      <Check size={18} />      | [@next/next/no-async-client-component](/docs/messages/no-async-client-component)                                         | 防止 Client Components 成为异步函数。                                                            |
+|      <Check size={18} />      | [@next/next/no-before-interactive-script-outside-document](/docs/messages/no-before-interactive-script-outside-document) | 防止在 `pages/_document.js` 之外使用 `next/script` 的 `beforeInteractive` 策略。                   |
+|      <Check size={18} />      | [@next/next/no-css-tags](/docs/messages/no-css-tags)                                                                     | 防止手动添加样式表标签。                                                                                  |
+|      <Check size={18} />      | [@next/next/no-document-import-in-page](/docs/messages/no-document-import-in-page)                                       | 防止在 `pages/_document.js` 之外导入 `next/document`。                                               |
+|      <Check size={18} />      | [@next/next/no-duplicate-head](/docs/messages/no-duplicate-head)                                                         | 防止在 `pages/_document.js` 中重复使用 `<Head>`。                                                     |
+|      <Check size={18} />      | [@next/next/no-head-element](/docs/messages/no-head-element)                                                             | 防止使用 `<head>` 元素。                                                                               |
+|      <Check size={18} />      | [@next/next/no-head-import-in-document](/docs/messages/no-head-import-in-document)                                       | 防止在 `pages/_document.js` 中使用 `next/head`。                                                            |
+|      <Check size={18} />      | [@next/next/no-html-link-for-pages](/docs/messages/no-html-link-for-pages)                                               | 防止使用 `<a>` 元素导航到内部 Next.js 页面。                                           |
+|      <Check size={18} />      | [@next/next/no-img-element](/docs/messages/no-img-element)                                                               | 防止使用 `<img>` 元素，因为它会导致较慢的 LCP 和更高的带宽。                                         |
+|      <Check size={18} />      | [@next/next/no-page-custom-font](/docs/messages/no-page-custom-font)                                                     | 防止仅在页面中使用自定义字体。                                                                                  |
+|      <Check size={18} />      | [@next/next/no-script-component-in-head](/docs/messages/no-script-component-in-head)                                     | 防止在 `next/head` 组件中使用 `next/script`。                                                         |
+|      <Check size={18} />      | [@next/next/no-styled-jsx-in-document](/docs/messages/no-styled-jsx-in-document)                                         | 防止在 `pages/_document.js` 中使用 `styled-jsx`。                                                           |
+|      <Check size={18} />      | [@next/next/no-sync-scripts](/docs/messages/no-sync-scripts)                                                             | 防止同步脚本。                                                                                     |
+|      <Check size={18} />      | [@next/next/no-title-in-document-head](/docs/messages/no-title-in-document-head)                                         | 防止在 `next/document` 的 `Head` 组件中使用 `<title>`。                                           |
+|      <Check size={18} />      | @next/next/no-typos                                                                                                      | 防止 [Next.js 数据获取函数](/docs/pages/building-your-application/data-fetching)中的常见拼写错误 |
+|      <Check size={18} />      | [@next/next/no-unwanted-polyfillio](/docs/messages/no-unwanted-polyfillio)                                               | 防止来自 Polyfill.io 的重复 polyfills。                                                                    |
+
+我们建议使用适当的[集成](https://eslint.org/docs/user-guide/integrations#editors)，以便在开发过程中直接在代码编辑器中查看警告和错误。
+
+<details>
+  <summary>`next lint` 移除</summary>
+
+从 Next.js 16 开始，`next lint` 已被移除。
+
+作为移除的一部分，Next 配置文件中的 `eslint` 选项不再需要，可以安全地删除。
+
+</details>
+
+## 示例
+
+### 在 monorepo 中指定根目录
+
+如果你在 Next.js 未安装在根目录的项目（例如 monorepo）中使用 `@next/eslint-plugin-next`，可以使用 `eslint.config.mjs` 中的 `settings` 属性告诉 `@next/eslint-plugin-next` 在哪里找到你的 Next.js 应用程序：
+
+```js filename="eslint.config.mjs"
+import { defineConfig } from 'eslint/config'
+import eslintNextPlugin from '@next/eslint-plugin-next'
+
+const eslintConfig = defineConfig([
+  {
+    plugins: {
+      next: eslintNextPlugin,
+    },
+    settings: {
+      next: {
+        rootDir: 'packages/my-app/',
+      },
+    },
+    files: [
+      // ...files
+    ],
+    ignores: [
+      // ...ignores
+    ],
+  },
+])
+
+export default eslintConfig
+```
+
+`rootDir` 可以是路径（相对或绝对）、glob（即 `"packages/*/"`）或路径和/或 glob 的数组。
+
+### 禁用规则
+
+如果你想修改或禁用受支持插件（`react`、`react-hooks`、`next`）提供的任何规则，可以在 `eslint.config.mjs` 中使用 `rules` 属性直接更改它们：
+
+```js filename="eslint.config.mjs"
+import { defineConfig, globalIgnores } from 'eslint/config'
+import nextVitals from 'eslint-config-next/core-web-vitals'
+
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  {
+    rules: {
+      'react/no-unescaped-entities': 'off',
+      '@next/next/no-page-custom-font': 'off',
+    },
+  },
+  // 覆盖 eslint-config-next 的默认忽略项。
+  globalIgnores([
+    // eslint-config-next 的默认忽略项：
+    '.next/**',
+    'out/**',
+    'build/**',
+    'next-env.d.ts',
+  ]),
+])
+
+export default eslintConfig
+```
+
+### 使用 Core Web Vitals
+
+通过在 ESLint 配置中扩展 `next/core-web-vitals` 规则集来启用它。
+
+```js filename="eslint.config.mjs"
+import { defineConfig, globalIgnores } from 'eslint/config'
+import nextVitals from 'eslint-config-next/core-web-vitals'
+
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  // 覆盖 eslint-config-next 的默认忽略项。
+  globalIgnores([
+    // eslint-config-next 的默认忽略项：
+    '.next/**',
+    'out/**',
+    'build/**',
+    'next-env.d.ts',
+  ]),
+])
+
+export default eslintConfig
+```
+
+`next/core-web-vitals` 更新 `@next/eslint-plugin-next`，将默认情况下为警告的若干规则在影响 [Core Web Vitals](https://web.dev/vitals/) 时设置为错误。
+
+> 对于使用 [Create Next App](/docs/app/api-reference/cli/create-next-app) 构建的新应用程序，`next/core-web-vitals` 入口点会自动包含。
+
+### 使用 TypeScript
+
+除了 Next.js ESLint 规则外，`create-next-app --typescript` 还会将 TypeScript 特定的 lint 规则与 `next/typescript` 一起添加到你的配置中：
+
+```js filename="eslint.config.mjs"
+import { defineConfig, globalIgnores } from 'eslint/config'
+import nextVitals from 'eslint-config-next/core-web-vitals'
+import nextTs from 'eslint-config-next/typescript'
+
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  // 覆盖 eslint-config-next 的默认忽略项。
+  globalIgnores([
+    // eslint-config-next 的默认忽略项：
+    '.next/**',
+    'out/**',
+    'build/**',
+    'next-env.d.ts',
+  ]),
+])
+
+export default eslintConfig
+```
+
+这些规则基于 [`plugin:@typescript-eslint/recommended`](https://typescript-eslint.io/linting/configs#recommended)。
+有关更多详细信息，请参阅 [typescript-eslint > Configs](https://typescript-eslint.io/linting/configs)。
+
+### 使用 Prettier
+
+ESLint 还包含代码格式化规则，这可能与你现有的 [Prettier](https://prettier.io/) 设置冲突。我们建议在 ESLint 配置中包含 [eslint-config-prettier](https://github.com/prettier/eslint-config-prettier)，以使 ESLint 和 Prettier 协同工作。
+
+首先，安装依赖：
+
+```bash package="pnpm"
+pnpm add -D eslint-config-prettier
+```
+
+```bash package="npm"
+npm i -D eslint-config-prettier
+```
+
+```bash package="yarn"
+yarn add --dev eslint-config-prettier
+```
+
+```bash package="bun"
+bun add -d eslint-config-prettier
+```
+
+然后，将 `prettier` 添加到你现有的 ESLint 配置中：
+
+```js filename="eslint.config.mjs"
+import { defineConfig, globalIgnores } from 'eslint/config'
+import nextVitals from 'eslint-config-next/core-web-vitals'
+import prettier from 'eslint-config-prettier/flat'
+
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  prettier,
+  // 覆盖 eslint-config-next 的默认忽略项。
+  globalIgnores([
+    // eslint-config-next 的默认忽略项：
+    '.next/**',
+    'out/**',
+    'build/**',
+    'next-env.d.ts',
+  ]),
+])
+
+export default eslintConfig
+```
+
+### 对暂存文件运行 lint
+
+如果你想将 ESLint 与 [lint-staged](https://github.com/okonet/lint-staged) 一起使用，以便对暂存的 git 文件运行 linter，请将以下内容添加到项目根目录的 `.lintstagedrc.js` 文件中：
+
+```js filename=".lintstagedrc.js"
+const path = require('path')
+
+const buildEslintCommand = (filenames) =>
+  `eslint --fix ${filenames
+    .map((f) => `"${path.relative(process.cwd(), f)}"`)
+    .join(' ')}`
+
+module.exports = {
+  '*.{js,jsx,ts,tsx}': [buildEslintCommand],
+}
+```
+
+### 迁移现有配置
+
+如果你的应用程序中已经配置了 ESLint，我们建议直接从此插件扩展，而不是包含 `eslint-config-next`，除非满足一些条件。
+
+#### 推荐的插件规则集
+
+如果满足以下条件：
+
+- 你已经安装了以下一个或多个插件（单独安装或通过其他配置（如 `airbnb` 或 `react-app`）安装）：
+  - `react`
+  - `react-hooks`
+  - `jsx-a11y`
+  - `import`
+- 你定义了与 Next.js 中 Babel 配置方式不同的特定 `parserOptions`（除非你[自定义了 Babel 配置](/docs/pages/guides/babel)，否则不建议这样做）
+- 你安装了 `eslint-plugin-import`，并定义了 Node.js 和/或 TypeScript [resolvers](https://github.com/benmosher/eslint-plugin-import#resolvers) 来处理导入
+
+那么，如果你更喜欢 [`eslint-config-next`](https://github.com/vercel/next.js/blob/canary/packages/eslint-config-next/index.js) 中这些属性的配置方式，我们建议删除这些设置，或者直接从 Next.js ESLint 插件扩展：
+
+```js
+module.exports = {
+  extends: [
+    //...
+    'plugin:@next/next/recommended',
+  ],
+}
+```
+
+该插件可以正常安装在你的项目中：
+
+```bash package="pnpm"
+pnpm add -D @next/eslint-plugin-next
+```
+
+```bash package="npm"
+npm i -D @next/eslint-plugin-next
+```
+
+```bash package="yarn"
+yarn add --dev @next/eslint-plugin-next
+```
+
+```bash package="bun"
+bun add -d @next/eslint-plugin-next
+```
+
+这消除了由于跨多个配置导入相同插件或解析器而可能发生的冲突或错误的风险。
+
+#### 其他配置
+
+如果你已经使用单独的 ESLint 配置并希望包含 `eslint-config-next`，请确保它在其他配置之后最后扩展。例如：
+
+```js filename="eslint.config.mjs"
+import { defineConfig, globalIgnores } from 'eslint/config'
+import nextPlugin from '@next/eslint-plugin-next'
+
+const eslintConfig = defineConfig([
+  nextPlugin.configs['core-web-vitals'],
+  // 忽略模式列表。
+  globalIgnores([]),
+])
+
+export default eslintConfig
+```
+
+`next` 配置已经处理了为 `parser`、`plugins` 和 `settings` 属性设置默认值。除非你的用例需要不同的配置，否则无需手动重新声明这些属性。
+
+如果你包含任何其他可共享配置，**你需要确保这些属性不会被覆盖或修改**。否则，我们建议删除与 `next` 配置共享行为的任何配置，或如上所述直接从 Next.js ESLint 插件扩展。
+
+| 版本   | 变更                                                                                                                                                                                                             |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `v16.0.0` | 移除了 `next lint` 和 `eslint` next.config.js 选项，改用 ESLint CLI。可以使用 [codemod](/docs/app/guides/upgrading/codemods#migrate-from-next-lint-to-eslint-cli) 来帮助你迁移。 |

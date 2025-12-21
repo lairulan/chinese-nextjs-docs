@@ -1,0 +1,173 @@
+---
+title: forbidden
+description: forbidden 函数的 API 参考。
+version: experimental
+related:
+  links:
+    - app/api-reference/file-conventions/forbidden
+slug: /docs/app/api-reference/functions/forbidden
+---
+
+`forbidden` 函数会抛出一个错误，渲染 Next.js 403 错误页面。它对于处理应用程序中的授权错误非常有用。你可以使用 [`forbidden.js` 文件](/docs/app/api-reference/file-conventions/forbidden)来自定义 UI。
+
+要开始使用 `forbidden`，请在你的 `next.config.js` 文件中启用实验性的 [`authInterrupts`](/docs/app/api-reference/config/next-config-js/authInterrupts) 配置选项:
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  experimental: {
+    authInterrupts: true,
+  },
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+module.exports = {
+  experimental: {
+    authInterrupts: true,
+  },
+}
+```
+
+`forbidden` 可以在 [Server Components](/docs/app/getting-started/server-and-client-components)、[Server Actions](/docs/app/getting-started/updating-data) 和 [Route Handlers](/docs/app/api-reference/file-conventions/route) 中调用。
+
+```tsx filename="app/auth/page.tsx" switcher
+import { verifySession } from '@/app/lib/dal'
+import { forbidden } from 'next/navigation'
+
+export default async function AdminPage() {
+  const session = await verifySession()
+
+  // 检查用户是否具有 'admin' 角色
+  if (session.role !== 'admin') {
+    forbidden()
+  }
+
+  // 为授权用户渲染管理页面
+  return <></>
+}
+```
+
+```jsx filename="app/auth/page.js" switcher
+import { verifySession } from '@/app/lib/dal'
+import { forbidden } from 'next/navigation'
+
+export default async function AdminPage() {
+  const session = await verifySession()
+
+  // 检查用户是否具有 'admin' 角色
+  if (session.role !== 'admin') {
+    forbidden()
+  }
+
+  // 为授权用户渲染管理页面
+  return <></>
+}
+```
+
+## 值得注意的是
+
+- `forbidden` 函数不能在 [root layout](/docs/app/api-reference/file-conventions/layout#root-layout) 中调用。
+
+## 示例
+
+### 基于角色的路由保护
+
+你可以使用 `forbidden` 根据用户角色限制对某些路由的访问。这可以确保已通过身份验证但缺少所需权限的用户无法访问该路由。
+
+```tsx filename="app/admin/page.tsx" switcher
+import { verifySession } from '@/app/lib/dal'
+import { forbidden } from 'next/navigation'
+
+export default async function AdminPage() {
+  const session = await verifySession()
+
+  // 检查用户是否具有 'admin' 角色
+  if (session.role !== 'admin') {
+    forbidden()
+  }
+
+  // 为授权用户渲染管理页面
+  return (
+    <main>
+      <h1>Admin Dashboard</h1>
+      <p>Welcome, {session.user.name}!</p>
+    </main>
+  )
+}
+```
+
+```jsx filename="app/admin/page.js" switcher
+import { verifySession } from '@/app/lib/dal'
+import { forbidden } from 'next/navigation'
+
+export default async function AdminPage() {
+  const session = await verifySession()
+
+  // 检查用户是否具有 'admin' 角色
+  if (session.role !== 'admin') {
+    forbidden()
+  }
+
+  // 为授权用户渲染管理页面
+  return (
+    <main>
+      <h1>Admin Dashboard</h1>
+      <p>Welcome, {session.user.name}!</p>
+    </main>
+  )
+}
+```
+
+### 使用 Server Actions 进行变更
+
+在 Server Actions 中实现变更时，你可以使用 `forbidden` 来仅允许具有特定角色的用户更新敏感数据。
+
+```ts filename="app/actions/update-role.ts" switcher
+'use server'
+
+import { verifySession } from '@/app/lib/dal'
+import { forbidden } from 'next/navigation'
+import db from '@/app/lib/db'
+
+export async function updateRole(formData: FormData) {
+  const session = await verifySession()
+
+  // 确保只有管理员可以更新角色
+  if (session.role !== 'admin') {
+    forbidden()
+  }
+
+  // 为授权用户执行角色更新
+  // ...
+}
+```
+
+```js filename="app/actions/update-role.js" switcher
+'use server'
+
+import { verifySession } from '@/app/lib/dal'
+import { forbidden } from 'next/navigation'
+import db from '@/app/lib/db'
+
+export async function updateRole(formData) {
+  const session = await verifySession()
+
+  // 确保只有管理员可以更新角色
+  if (session.role !== 'admin') {
+    forbidden()
+  }
+
+  // 为授权用户执行角色更新
+  // ...
+}
+```
+
+## 版本历史
+
+| Version   | Changes          |
+| --------- | ---------------- |
+| `v15.1.0` | 引入 `forbidden`。|

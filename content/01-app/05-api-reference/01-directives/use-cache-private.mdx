@@ -1,0 +1,389 @@
+---
+title: "use cache: private"
+description: "学习如何使用 `use cache: private` 指令在你的 Next.js 应用中启用个性化内容的运行时预取。"
+related:
+  title: 相关
+  description: 查看相关的 API 参考。
+  links:
+    - app/api-reference/directives/use-cache
+    - app/api-reference/config/next-config-js/cacheComponents
+    - app/api-reference/functions/cacheLife
+    - app/api-reference/functions/cacheTag
+    - app/guides/prefetching
+slug: /docs/app/api-reference/directives/use-cache-private
+---
+
+`'use cache: private'` 指令启用依赖于 cookies、headers 或 search params 的个性化内容的运行时预取。
+
+> **值得注意的是**：`'use cache: private'` 是 [`use cache`](/docs/app/api-reference/directives/use-cache) 的一个变体，专为需要可预取但永远不应存储在服务器端缓存处理程序中的用户特定内容而设计。
+
+## 使用方法
+
+要使用 `'use cache: private'`，请在你的 `next.config.ts` 文件中启用 [`cacheComponents`](/docs/app/api-reference/config/next-config-js/cacheComponents) 标志：
+
+```tsx filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  cacheComponents: true,
+}
+
+export default nextConfig
+```
+
+```jsx filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  cacheComponents: true,
+}
+
+export default nextConfig
+```
+
+然后将 `'use cache: private'` 添加到你的函数中，并配合 `cacheLife` 配置，同时从你的页面导出 `unstable_prefetch`。
+
+### 基础示例
+
+```tsx filename="app/product/[id]/page.tsx" switcher
+import { Suspense } from 'react'
+import { cookies } from 'next/headers'
+import { cacheLife, cacheTag } from 'next/cache'
+
+// 必需：启用运行时预取
+export const unstable_prefetch = {
+  mode: 'runtime',
+  samples: [
+    { params: { id: '1' }, cookies: [{ name: 'session-id', value: '1' }] },
+  ],
+}
+
+export default async function ProductPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+
+  return (
+    <div>
+      <ProductDetails id={id} />
+      <Suspense fallback={<div>Loading recommendations...</div>}>
+        <Recommendations productId={id} />
+      </Suspense>
+    </div>
+  )
+}
+
+async function Recommendations({ productId }: { productId: string }) {
+  const recommendations = await getRecommendations(productId)
+
+  return (
+    <div>
+      {recommendations.map((rec) => (
+        <ProductCard key={rec.id} product={rec} />
+      ))}
+    </div>
+  )
+}
+
+async function getRecommendations(productId: string) {
+  'use cache: private'
+  cacheTag(`recommendations-${productId}`)
+  cacheLife({ stale: 60 }) // 运行时预取至少需要 30 秒
+
+  // 在私有缓存函数中访问 cookies
+  const sessionId = (await cookies()).get('session-id')?.value || 'guest'
+
+  return getPersonalizedRecommendations(productId, sessionId)
+}
+```
+
+```jsx filename="app/product/[id]/page.js" switcher
+import { Suspense } from 'react'
+import { cookies } from 'next/headers'
+import { cacheLife, cacheTag } from 'next/cache'
+
+// 必需：启用运行时预取
+export const unstable_prefetch = {
+  mode: 'runtime',
+  samples: [
+    { params: { id: '1' }, cookies: [{ name: 'session-id', value: '1' }] },
+  ],
+}
+
+export default async function ProductPage({ params }) {
+  const { id } = await params
+
+  return (
+    <div>
+      <ProductDetails id={id} />
+      <Suspense fallback={<div>Loading recommendations...</div>}>
+        <Recommendations productId={id} />
+      </Suspense>
+    </div>
+  )
+}
+
+async function Recommendations({ productId }) {
+  const recommendations = await getRecommendations(productId)
+
+  return (
+    <div>
+      {recommendations.map((rec) => (
+        <ProductCard key={rec.id} product={rec} />
+      ))}
+    </div>
+  )
+}
+
+async function getRecommendations(productId) {
+  'use cache: private'
+  cacheTag(`recommendations-${productId}`)
+  cacheLife({ stale: 60 }) // 运行时预取至少需要 30 秒
+
+  // 在私有缓存函数中访问 cookies
+  const sessionId = (await cookies()).get('session-id')?.value || 'guest'
+
+  return getPersonalizedRecommendations(productId, sessionId)
+}
+```
+
+> **注意：**私有缓存需要至少 30 秒的 `cacheLife` stale 时间才能启用运行时预取。低于 30 秒的值将被视为动态的。
+
+## 与 `use cache` 的区别
+
+常规 `use cache` 是为可以在服务器上缓存的静态共享内容而设计的，而 `'use cache: private'` 专门用于需要满足以下条件的动态用户特定内容：
+
+1. **个性化** - 根据 cookies、headers 或 search params 而变化
+2. **可预取** - 可以在用户导航到页面之前加载
+3. **仅客户端** - 永远不会持久化到服务器端缓存处理程序
+
+| 功能                               | `use cache`          | `'use cache: private'`  |
+| ---------------------------------- | -------------------- | ----------------------- |
+| **访问 `await cookies()`**         | 否                   | 是                      |
+| **访问 `await headers()`**         | 否                   | 是                      |
+| **访问 `await searchParams`**      | 否                   | 是                      |
+| **存储在缓存处理程序中**           | 是（服务器端）       | 否（仅客户端）          |
+| **运行时可预取**                   | 不适用（已经是静态） | 是（配置后）            |
+| **缓存作用域**                     | 全局（共享）         | 每个用户（隔离）        |
+| **使用场景**                       | 静态，共享内容       | 个性化，用户特定内容    |
+
+## 工作原理
+
+### 运行时预取
+
+当用户悬停或查看指向具有 `unstable_prefetch = { mode: 'runtime' }` 的页面的链接时：
+
+1. **静态内容**立即被预取（布局、页面外壳）
+2. **私有缓存函数**使用用户当前的 cookies/headers 执行
+3. **结果被存储**在客户端 Resume Data Cache 中
+4. **导航是即时的** - 静态和个性化内容都已加载
+
+> **值得注意的是**：如果没有 `'use cache: private'`，个性化内容无法被预取，必须等到导航完成后才能加载。运行时预取通过使用用户当前的请求上下文执行缓存函数来消除这种延迟。
+
+### 存储行为
+
+私有缓存**永远不会持久化**到服务器端缓存处理程序（如 Redis、Vercel Data Cache 等）。它们的存在仅用于：
+
+1. 启用个性化内容的运行时预取
+2. 在会话期间将预取的数据存储在客户端缓存中
+3. 使用标签和 stale 时间协调缓存失效
+
+这确保了用户特定的数据永远不会在用户之间意外共享，同时仍然能够实现快速的预取导航。
+
+### Stale 时间要求
+
+> **注意：**即使使用 `'use cache: private'`，`cacheLife` stale 时间少于 30 秒的函数也不会进行运行时预取。这可以防止预取快速变化的数据，这些数据在导航时可能已经过时。
+
+```tsx
+// 将进行运行时预取（stale ≥ 30s）
+cacheLife({ stale: 60 })
+
+// 将进行运行时预取（stale ≥ 30s）
+cacheLife({ stale: 30 })
+
+// 不会进行运行时预取（stale < 30s）
+cacheLife({ stale: 10 })
+```
+
+## 私有缓存中允许的 Request API
+
+以下请求特定的 API 可以在 `'use cache: private'` 函数内部使用：
+
+| API            | 在 `use cache` 中允许 | 在 `'use cache: private'` 中允许 |
+| -------------- | --------------------- | -------------------------------- |
+| `cookies()`    | 否                    | 是                               |
+| `headers()`    | 否                    | 是                               |
+| `searchParams` | 否                    | 是                               |
+| `connection()` | 否                    | 否                               |
+
+> **注意：**[`connection()`](https://nextjs.org/docs/app/api-reference/functions/connection) API 在 `use cache` 和 `'use cache: private'` 中都被禁止，因为它提供了无法安全缓存的连接特定信息。
+
+## 嵌套规则
+
+私有缓存具有特定的嵌套规则，以防止用户特定数据泄漏到共享缓存中：
+
+- 私有缓存**可以**嵌套在其他私有缓存内部
+- 私有缓存**不能**嵌套在公共缓存内部（`'use cache'`、`'use cache: remote'`）
+- 公共缓存**可以**嵌套在私有缓存内部
+
+```tsx
+// 有效：私有嵌套在私有内部
+async function outerPrivate() {
+  'use cache: private'
+  const result = await innerPrivate()
+  return result
+}
+
+async function innerPrivate() {
+  'use cache: private'
+  return getData()
+}
+
+// 无效：私有嵌套在公共内部
+async function outerPublic() {
+  'use cache'
+  const result = await innerPrivate() // 错误！
+  return result
+}
+
+async function innerPrivate() {
+  'use cache: private'
+  return getData()
+}
+```
+
+## 示例
+
+### 个性化产品推荐
+
+此示例展示了如何根据用户的会话 cookie 缓存个性化产品推荐。当用户悬停在产品链接上时，推荐会在运行时被预取。
+
+```tsx filename="app/product/[id]/page.tsx"
+import { cookies } from 'next/headers'
+import { cacheLife, cacheTag } from 'next/cache'
+
+export const unstable_prefetch = {
+  mode: 'runtime',
+  samples: [
+    { params: { id: '1' }, cookies: [{ name: 'user-id', value: 'user-123' }] },
+  ],
+}
+
+async function getRecommendations(productId: string) {
+  'use cache: private'
+  cacheTag(`recommendations-${productId}`)
+  cacheLife({ stale: 60 })
+
+  const userId = (await cookies()).get('user-id')?.value
+
+  // 根据用户的浏览历史获取个性化推荐
+  const recommendations = await db.recommendations.findMany({
+    where: { userId, productId },
+  })
+
+  return recommendations
+}
+```
+
+### 用户特定定价
+
+缓存因用户层级而异的定价信息，允许即时导航到定价页面，个性化费率已经加载。
+
+```tsx filename="app/pricing/page.tsx"
+import { cookies } from 'next/headers'
+import { cacheLife } from 'next/cache'
+
+export const unstable_prefetch = {
+  mode: 'runtime',
+  samples: [{ cookies: [{ name: 'user-tier', value: 'premium' }] }],
+}
+
+async function getPricing() {
+  'use cache: private'
+  cacheLife({ stale: 300 }) // 5 分钟
+
+  const tier = (await cookies()).get('user-tier')?.value || 'free'
+
+  // 返回特定层级的定价
+  return db.pricing.findMany({ where: { tier } })
+}
+```
+
+### 基于 headers 的本地化内容
+
+根据用户的 `Accept-Language` header 提供本地化内容，在导航之前预取正确的语言变体。
+
+```tsx filename="app/page.tsx"
+import { headers } from 'next/headers'
+import { cacheLife, cacheTag } from 'next/cache'
+
+export const unstable_prefetch = {
+  mode: 'runtime',
+  samples: [{ headers: [{ name: 'accept-language', value: 'en-US' }] }],
+}
+
+async function getLocalizedContent() {
+  'use cache: private'
+  cacheTag('content')
+  cacheLife({ stale: 3600 }) // 1 小时
+
+  const headersList = await headers()
+  const locale = headersList.get('accept-language')?.split(',')[0] || 'en-US'
+
+  return db.content.findMany({ where: { locale } })
+}
+```
+
+### 带用户偏好的搜索结果
+
+预取包含用户特定偏好的搜索结果，确保个性化搜索结果即时加载。
+
+```tsx filename="app/search/page.tsx"
+import { cookies } from 'next/headers'
+import { cacheLife } from 'next/cache'
+
+export const unstable_prefetch = {
+  mode: 'runtime',
+  samples: [
+    {
+      searchParams: { q: 'laptop' },
+      cookies: [{ name: 'preferences', value: 'compact-view' }],
+    },
+  ],
+}
+
+async function getSearchResults(query: string) {
+  'use cache: private'
+  cacheLife({ stale: 120 }) // 2 分钟
+
+  const preferences = (await cookies()).get('preferences')?.value
+
+  // 将用户偏好应用于搜索结果
+  return searchWithPreferences(query, preferences)
+}
+```
+
+> **值得注意的是**：
+>
+> - 私有缓存是临时的，仅在会话期间存在于客户端缓存中
+> - 私有缓存结果永远不会写入服务器端缓存处理程序
+> - 运行时预取需要 `unstable_prefetch` 导出才能工作
+> - 私有缓存需要至少 30 秒的最小 stale 时间才能被预取
+> - 你可以使用 `cacheTag()` 和 `revalidateTag()` 来使私有缓存失效
+> - 每个用户根据其 cookies/headers 获得自己的私有缓存条目
+
+## 平台支持
+
+| 部署选项                                                        | 支持 |
+| --------------------------------------------------------------- | ---- |
+| [Node.js server](/docs/app/getting-started/deploying#nodejs-server) | 是   |
+| [Docker container](/docs/app/getting-started/deploying#docker)      | 是   |
+| [Static export](/docs/app/getting-started/deploying#static-export)  | 否   |
+| [Adapters](/docs/app/getting-started/deploying#adapters)            | 是   |
+
+## 版本历史
+
+| 版本      | 变更                                          |
+| --------- | --------------------------------------------- |
+| `v16.0.0` | `'use cache: private'` 作为实验性功能引入。   |

@@ -1,0 +1,488 @@
+---
+title: 更新数据
+description: 学习如何使用 Server Functions 更新数据。
+related:
+  title: API Reference
+  description: 通过阅读 API 参考了解更多本页面中提到的功能。
+  links:
+    - app/api-reference/functions/revalidatePath
+    - app/api-reference/functions/revalidateTag
+    - app/api-reference/functions/redirect
+slug: /docs/app/getting-started/updating-data
+---
+
+你可以使用 React 的 [Server Functions](https://react.dev/reference/rsc/server-functions) 在 Next.js 中更新数据。本页面将介绍如何[创建](#creating-server-functions)和[调用](#invoking-server-functions) Server Functions。
+
+## 什么是 Server Functions？
+
+**Server Function** 是在服务器上运行的异步函数。它们可以通过网络请求从客户端调用，这就是为什么它们必须是异步的。
+
+在 `action` 或变更上下文中，它们也被称为 **Server Actions**。
+
+按照惯例，Server Action 是与 [`startTransition`](https://react.dev/reference/react/startTransition) 一起使用的异步函数。当函数满足以下条件时，这会自动发生：
+
+- 使用 `action` prop 传递给 `<form>`。
+- 使用 `formAction` prop 传递给 `<button>`。
+
+在 Next.js 中，Server Actions 与框架的[缓存](/docs/app/guides/caching)架构集成。当调用一个 action 时，Next.js 可以在单个服务器往返中返回更新的 UI 和新数据。
+
+在幕后，actions 使用 `POST` 方法，并且只有这个 HTTP 方法可以调用它们。
+
+## 创建 Server Functions
+
+可以使用 [`use server`](https://react.dev/reference/rsc/use-server) 指令来定义 Server Function。你可以将指令放在**异步**函数的顶部以将函数标记为 Server Function，或放在单独文件的顶部以标记该文件的所有导出。
+
+```ts filename="app/lib/actions.ts" switcher
+export async function createPost(formData: FormData) {
+  'use server'
+  const title = formData.get('title')
+  const content = formData.get('content')
+
+  // 更新数据
+  // 重新验证缓存
+}
+
+export async function deletePost(formData: FormData) {
+  'use server'
+  const id = formData.get('id')
+
+  // 更新数据
+  // 重新验证缓存
+}
+```
+
+```js filename="app/lib/actions.js" switcher
+export async function createPost(formData) {
+  'use server'
+  const title = formData.get('title')
+  const content = formData.get('content')
+
+  // 更新数据
+  // 重新验证缓存
+}
+
+export async function deletePost(formData) {
+  'use server'
+  const id = formData.get('id')
+
+  // 更新数据
+  // 重新验证缓存
+}
+```
+
+### Server Components
+
+可以通过在函数体顶部添加 `"use server"` 指令，在 Server Components 中内联 Server Functions：
+
+```tsx filename="app/page.tsx" switcher
+export default function Page() {
+  // Server Action
+  async function createPost(formData: FormData) {
+    'use server'
+    // ...
+  }
+
+  return <></>
+}
+```
+
+```jsx filename="app/page.js" switcher
+export default function Page() {
+  // Server Action
+  async function createPost(formData: FormData) {
+    'use server'
+    // ...
+  }
+
+  return <></>
+}
+```
+
+> **值得注意的是**： Server Components 默认支持渐进增强，这意味着即使 JavaScript 尚未加载或被禁用，调用 Server Actions 的表单也会被提交。
+
+### Client Components
+
+无法在 Client Components 中定义 Server Functions。但是，你可以通过从顶部带有 `"use server"` 指令的文件中导入它们，在 Client Components 中调用它们：
+
+```ts filename="app/actions.ts" switcher
+'use server'
+
+export async function createPost() {}
+```
+
+```js filename="app/actions.js" switcher
+'use server'
+
+export async function createPost() {}
+```
+
+```tsx filename="app/ui/button.tsx" switcher
+'use client'
+
+import { createPost } from '@/app/actions'
+
+export function Button() {
+  return <button formAction={createPost}>Create</button>
+}
+```
+
+```jsx filename="app/ui/button.js" switcher
+'use client'
+
+import { createPost } from '@/app/actions'
+
+export function Button() {
+  return <button formAction={createPost}>Create</button>
+}
+```
+
+> **值得注意的是**： 在 Client Components 中，如果 JavaScript 尚未加载，调用 Server Actions 的表单将排队提交，并将优先进行水合。水合后，浏览器不会在表单提交时刷新。
+
+### 将 actions 作为 props 传递
+
+你还可以将 action 作为 prop 传递给 Client Component：
+
+```jsx
+<ClientComponent updateItemAction={updateItem} />
+```
+
+```tsx filename="app/client-component.tsx" switcher
+'use client'
+
+export default function ClientComponent({
+  updateItemAction,
+}: {
+  updateItemAction: (formData: FormData) => void
+}) {
+  return <form action={updateItemAction}>{/* ... */}</form>
+}
+```
+
+```jsx filename="app/client-component.js" switcher
+'use client'
+
+export default function ClientComponent({ updateItemAction }) {
+  return <form action={updateItemAction}>{/* ... */}</form>
+}
+```
+
+## 调用 Server Functions
+
+有两种主要方式可以调用 Server Function：
+
+1. Server 和 Client Components 中的[表单](#forms)
+2. Client Components 中的[事件处理程序](#event-handlers)和 [useEffect](#useeffect)
+
+> **值得注意的是**： Server Functions 是为服务器端变更而设计的。客户端目前一次调度并等待一个。这是一个实现细节，可能会改变。如果你需要并行数据获取，请在 Server Components 中使用[数据获取](/docs/app/getting-started/fetching-data#server-components)，或在单个 Server Function 或 [Route Handler](/docs/app/guides/backend-for-frontend#manipulating-data) 内执行并行工作。
+
+### 表单
+
+React 扩展了 HTML [`<form>`](https://react.dev/reference/react-dom/components/form) 元素，允许使用 HTML `action` prop 调用 Server Function。
+
+当在表单中调用时，函数会自动接收 [`FormData`](https://developer.mozilla.org/docs/Web/API/FormData/FormData) 对象。你可以使用原生 [`FormData` 方法](https://developer.mozilla.org/en-US/docs/Web/API/FormData#instance_methods)提取数据：
+
+```tsx filename="app/ui/form.tsx" switcher
+import { createPost } from '@/app/actions'
+
+export function Form() {
+  return (
+    <form action={createPost}>
+      <input type="text" name="title" />
+      <input type="text" name="content" />
+      <button type="submit">Create</button>
+    </form>
+  )
+}
+```
+
+```jsx filename="app/ui/form.js" switcher
+import { createPost } from '@/app/actions'
+
+export function Form() {
+  return (
+    <form action={createPost}>
+      <input type="text" name="title" />
+      <input type="text" name="content" />
+      <button type="submit">Create</button>
+    </form>
+  )
+}
+```
+
+```ts filename="app/actions.ts" switcher
+'use server'
+
+export async function createPost(formData: FormData) {
+  const title = formData.get('title')
+  const content = formData.get('content')
+
+  // 更新数据
+  // 重新验证缓存
+}
+```
+
+```js filename="app/actions.js" switcher
+'use server'
+
+export async function createPost(formData) {
+  const title = formData.get('title')
+  const content = formData.get('content')
+
+  // 更新数据
+  // 重新验证缓存
+}
+```
+
+### 事件处理程序
+
+你可以在 Client Component 中使用事件处理程序（如 `onClick`）来调用 Server Function。
+
+```tsx filename="app/like-button.tsx" switcher
+'use client'
+
+import { incrementLike } from './actions'
+import { useState } from 'react'
+
+export default function LikeButton({ initialLikes }: { initialLikes: number }) {
+  const [likes, setLikes] = useState(initialLikes)
+
+  return (
+    <>
+      <p>Total Likes: {likes}</p>
+      <button
+        onClick={async () => {
+          const updatedLikes = await incrementLike()
+          setLikes(updatedLikes)
+        }}
+      >
+        Like
+      </button>
+    </>
+  )
+}
+```
+
+```jsx filename="app/like-button.js" switcher
+'use client'
+
+import { incrementLike } from './actions'
+import { useState } from 'react'
+
+export default function LikeButton({ initialLikes }) {
+  const [likes, setLikes] = useState(initialLikes)
+
+  return (
+    <>
+      <p>Total Likes: {likes}</p>
+      <button
+        onClick={async () => {
+          const updatedLikes = await incrementLike()
+          setLikes(updatedLikes)
+        }}
+      >
+        Like
+      </button>
+    </>
+  )
+}
+```
+
+## 示例
+
+### 显示待处理状态
+
+在执行 Server Function 时，你可以使用 React 的 [`useActionState`](https://react.dev/reference/react/useActionState) hook 显示加载指示器。该 hook 返回一个 `pending` 布尔值：
+
+```tsx filename="app/ui/button.tsx" switcher
+'use client'
+
+import { useActionState, startTransition } from 'react'
+import { createPost } from '@/app/actions'
+import { LoadingSpinner } from '@/app/ui/loading-spinner'
+
+export function Button() {
+  const [state, action, pending] = useActionState(createPost, false)
+
+  return (
+    <button onClick={() => startTransition(action)}>
+      {pending ? <LoadingSpinner /> : 'Create Post'}
+    </button>
+  )
+}
+```
+
+```jsx filename="app/ui/button.js" switcher
+'use client'
+
+import { useActionState, startTransition } from 'react'
+import { createPost } from '@/app/actions'
+import { LoadingSpinner } from '@/app/ui/loading-spinner'
+
+export function Button() {
+  const [state, action, pending] = useActionState(createPost, false)
+
+  return (
+    <button onClick={() => startTransition(action)}>
+      {pending ? <LoadingSpinner /> : 'Create Post'}
+    </button>
+  )
+}
+```
+
+### 重新验证
+
+在执行更新后，你可以通过在 Server Function 中调用 [`revalidatePath`](/docs/app/api-reference/functions/revalidatePath) 或 [`revalidateTag`](/docs/app/api-reference/functions/revalidateTag) 来重新验证 Next.js 缓存并显示更新的数据：
+
+```ts filename="app/lib/actions.ts" switcher
+import { revalidatePath } from 'next/cache'
+
+export async function createPost(formData: FormData) {
+  'use server'
+  // 更新数据
+  // ...
+
+  revalidatePath('/posts')
+}
+```
+
+```js filename="app/actions.js" switcher
+import { revalidatePath } from 'next/cache'
+
+export async function createPost(formData) {
+  'use server'
+  // 更新数据
+  // ...
+  revalidatePath('/posts')
+}
+```
+
+### 重定向
+
+你可能希望在执行更新后将用户重定向到不同的页面。你可以通过在 Server Function 中调用 [`redirect`](/docs/app/api-reference/functions/redirect) 来实现。
+
+```ts filename="app/lib/actions.ts" switcher
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
+
+export async function createPost(formData: FormData) {
+  // 更新数据
+  // ...
+
+  revalidatePath('/posts')
+  redirect('/posts')
+}
+```
+
+```js filename="app/actions.js" switcher
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
+
+export async function createPost(formData) {
+  // 更新数据
+  // ...
+
+  revalidatePath('/posts')
+  redirect('/posts')
+}
+```
+
+调用 `redirect` 会[抛出](/docs/app/api-reference/functions/redirect#behavior)一个框架处理的控制流异常。之后的任何代码都不会执行。如果你需要新鲜数据，请提前调用 [`revalidatePath`](/docs/app/api-reference/functions/revalidatePath) 或 [`revalidateTag`](/docs/app/api-reference/functions/revalidateTag)。
+
+### Cookies
+
+你可以使用 [`cookies`](/docs/app/api-reference/functions/cookies) API 在 Server Action 中 `get`、`set` 和 `delete` cookies。
+
+当你在 Server Action 中[设置或删除](/docs/app/api-reference/functions/cookies#understanding-cookie-behavior-in-server-actions) cookie 时，Next.js 会在服务器上重新渲染当前页面及其布局，以便 **UI 反映新的 cookie 值**。
+
+> **值得注意的是**： 服务器更新应用于当前 React 树，根据需要重新渲染、挂载或卸载组件。重新渲染的组件会保留客户端状态，如果依赖项发生变化，effects 会重新运行。
+
+```ts filename="app/actions.ts" switcher
+'use server'
+
+import { cookies } from 'next/headers'
+
+export async function exampleAction() {
+  const cookieStore = await cookies()
+
+  // 获取 cookie
+  cookieStore.get('name')?.value
+
+  // 设置 cookie
+  cookieStore.set('name', 'Delba')
+
+  // 删除 cookie
+  cookieStore.delete('name')
+}
+```
+
+```js filename="app/actions.js" switcher
+'use server'
+
+import { cookies } from 'next/headers'
+
+export async function exampleAction() {
+  // 获取 cookie
+  const cookieStore = await cookies()
+
+  // 获取 cookie
+  cookieStore.get('name')?.value
+
+  // 设置 cookie
+  cookieStore.set('name', 'Delba')
+
+  // 删除 cookie
+  cookieStore.delete('name')
+}
+```
+
+### useEffect
+
+你可以使用 React [`useEffect`](https://react.dev/reference/react/useEffect) hook 在组件挂载或依赖项更改时调用 Server Action。这对于依赖全局事件或需要自动触发的变更非常有用。例如，应用快捷键的 `onKeyDown`、用于无限滚动的交叉观察器 hook，或者当组件挂载时更新查看次数：
+
+```tsx filename="app/view-count.tsx" switcher
+'use client'
+
+import { incrementViews } from './actions'
+import { useState, useEffect, useTransition } from 'react'
+
+export default function ViewCount({ initialViews }: { initialViews: number }) {
+  const [views, setViews] = useState(initialViews)
+  const [isPending, startTransition] = useTransition()
+
+  useEffect(() => {
+    startTransition(async () => {
+      const updatedViews = await incrementViews()
+      setViews(updatedViews)
+    })
+  }, [])
+
+  // 你可以使用 `isPending` 向用户提供反馈
+  return <p>Total Views: {views}</p>
+}
+```
+
+```jsx filename="app/view-count.js" switcher
+'use client'
+
+import { incrementViews } from './actions'
+import { useState, useEffect, useTransition } from 'react'
+
+export default function ViewCount({ initialViews }) {
+  const [views, setViews] = useState(initialViews)
+  const [isPending, startTransition] = useTransition()
+
+  useEffect(() => {
+    startTransition(async () => {
+      const updatedViews = await incrementViews()
+      setViews(updatedViews)
+    })
+  }, [])
+
+  // 你可以使用 `isPending` 向用户提供反馈
+  return <p>Total Views: {views}</p>
+}
+```

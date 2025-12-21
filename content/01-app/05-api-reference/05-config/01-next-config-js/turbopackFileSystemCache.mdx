@@ -1,0 +1,48 @@
+---
+title: Turbopack 文件系统缓存
+nav_title: turbopackFileSystemCache
+description: 了解如何为 Turbopack 构建启用文件系统缓存
+slug: /docs/app/api-reference/config/next-config-js/turbopackFileSystemCache
+---
+
+## 使用方法
+
+Turbopack 文件系统缓存使 Turbopack 能够减少 `next dev` 或 `next build` 命令之间的工作量。启用后，Turbopack 会将数据保存并恢复到构建之间的 `.next` 文件夹中，这可以大大加快后续构建和开发会话的速度。
+
+> **值得注意的是**：文件系统缓存功能目前处于 Beta 阶段，仍在开发中。采用此功能的用户应预期会遇到一些稳定性问题。我们建议首先在开发环境中采用它。
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  experimental: {
+    // 为 `next dev` 启用文件系统缓存
+    turbopackFileSystemCacheForDev: true,
+    // 为 `next build` 启用文件系统缓存
+    turbopackFileSystemCacheForBuild: true,
+  },
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  experimental: {
+    // 为 `next dev` 启用文件系统缓存
+    turbopackFileSystemCacheForDev: true,
+    // 为 `next build` 启用文件系统缓存
+    turbopackFileSystemCacheForBuild: true,
+  },
+}
+
+module.exports = nextConfig
+```
+
+## 版本变更
+
+| 版本      | 变更                                      |
+| --------- | ----------------------------------------- |
+| `v16.0.0` | Beta 版本发布，为构建和开发提供单独的标志 |
+| `v15.5.0` | 持久化缓存在 canary 版本中作为实验性功能发布 |

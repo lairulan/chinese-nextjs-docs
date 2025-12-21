@@ -1,0 +1,49 @@
+---
+title: 自动静态优化
+description: Next.js 尽可能地自动优化你的应用为静态 HTML。在此了解其工作原理。
+slug: /docs/pages/building-your-application/rendering/automatic-static-optimization
+---
+
+Next.js 自动判断一个页面是静态的（可以预渲染），如果它没有阻塞的数据需求。这一判断是通过页面中不存在 `getServerSideProps` 和 `getInitialProps` 来做出的。
+
+这个特性允许 Next.js 生成混合应用，其中包含**服务器渲染和静态生成的页面**。
+
+> **值得注意的是**：静态生成的页面仍然是响应式的。Next.js 将在客户端对应用进行水合，以提供完全的交互性。
+
+这个特性的主要优点之一是，优化后的页面不需要服务器端计算，并且可以从多个 CDN 位置即时传输给最终用户。其结果是为用户提供一个超快的加载体验。
+
+## 工作原理
+
+如果页面中存在 `getServerSideProps` 或 `getInitialProps`，Next.js 将切换为按需渲染页面，每次请求（意味着[服务器端渲染](/docs/pages/building-your-application/rendering/server-side-rendering)）。
+
+如果上述情况不存在，Next.js 将通过将页面预渲染为静态 HTML 来自动**静态优化**你的页面。
+
+在预渲染期间，路由器的 `query` 对象将为空，因为在此阶段我们没有要提供的 `query` 信息。在水合后，Next.js 将触发应用的更新，以提供路由参数到 `query` 对象。
+
+查询将在水合后更新触发另一次渲染的情况包括：
+
+- 页面是[动态路由](/docs/pages/building-your-application/routing/dynamic-routes)。
+- 页面的 URL 中有查询值。
+- 在 `next.config.js` 中配置了[重写](/docs/pages/api-reference/config/next-config-js/rewrites)，因为这些可能有需要解析和提供的参数。
+
+要能够区分查询是否已完全更新并可用，你可以利用 [`next/router`](/docs/pages/api-reference/functions/use-router#router-object) 上的 `isReady` 字段。
+
+> **值得注意的是**：添加到使用 [`getStaticProps`](/docs/pages/building-your-application/data-fetching/get-static-props) 的页面的[动态路由](/docs/pages/building-your-application/routing/dynamic-routes)参数将始终在 `query` 对象内可用。
+
+`next build` 将为静态优化的页面生成 `.html` 文件。例如，页面 `pages/about.js` 的结果将是：
+
+```bash filename="Terminal"
+.next/server/pages/about.html
+```
+
+如果你在页面中添加 `getServerSideProps`，它将变成 JavaScript，如下所示：
+
+```bash filename="Terminal"
+.next/server/pages/about.js
+```
+
+## 注意事项
+
+- 如果你有一个带有 `getInitialProps` 的[自定义 `App`](/docs/pages/building-your-application/routing/custom-app)，那么在没有[静态生成](/docs/pages/building-your-application/data-fetching/get-static-props)的页面中，这种优化将被关闭。
+- 如果你有一个带有 `getInitialProps` 的[自定义 `Document`](/docs/pages/building-your-application/routing/custom-document)，请确保在假设页面是服务器端渲染之前检查 `ctx.req` 是否已定义。对于预渲染的页面，`ctx.req` 将是 `undefined`。
+- 在路由器的 `isReady` 字段为 `true` 之前，避免在渲染树中使用 [`next/router`](/docs/pages/api-reference/functions/use-router#router-object) 上的 `asPath` 值。静态优化的页面仅在客户端知道 `asPath`，而不在服务器上，因此将其作为 prop 使用可能导致不匹配错误。[`active-class-name` 示例](https://github.com/vercel/next.js/tree/canary/examples/active-class-name)展示了使用 `asPath` 作为 prop 的一种方法。

@@ -1,0 +1,250 @@
+---
+title: cacheLife
+description: 了解如何使用 cacheLife 函数为缓存的函数或组件设置缓存过期时间。
+related:
+  title: 相关
+  description: 查看相关的 API 参考。
+  links:
+    - app/api-reference/config/next-config-js/cacheComponents
+    - app/api-reference/directives/use-cache
+    - app/api-reference/functions/revalidateTag
+    - app/api-reference/functions/cacheTag
+slug: /docs/app/api-reference/functions/cacheLife
+---
+
+`cacheLife` 函数用于设置函数或组件的缓存生命周期。它应该与 [`use cache`](/docs/app/api-reference/directives/use-cache) 指令一起使用，并在函数或组件的作用域内使用。
+
+## 用法
+
+要使用 `cacheLife`，请在你的 `next.config.js` 文件中启用 [`cacheComponents` 标志](/docs/app/api-reference/config/next-config-js/cacheComponents)：
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  cacheComponents: true,
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+const nextConfig = {
+  cacheComponents: true,
+}
+
+export default nextConfig
+```
+
+然后，在函数或组件的作用域内导入并调用 `cacheLife` 函数：
+
+```tsx filename="app/page.tsx" highlight={5} switcher
+'use cache'
+import { cacheLife } from 'next/cache'
+
+export default async function Page() {
+  cacheLife('hours')
+  return <div>Page</div>
+}
+```
+
+```jsx filename="app/page.js" highlight={5} switcher
+'use cache'
+import { cacheLife } from 'next/cache'
+
+export default async function Page() {
+  cacheLife('hours')
+  return <div>Page</div>
+}
+```
+
+## 参考
+
+### 默认缓存配置文件
+
+Next.js 提供了一组以各种时间尺度为模型的命名缓存配置文件。如果你在 `cacheLife` 函数中没有指定缓存配置文件与 `use cache` 指令一起使用，Next.js 将自动应用 `default` 缓存配置文件。
+
+然而，我们建议在使用 `use cache` 指令时始终添加缓存配置文件，以明确定义缓存行为。
+
+| **配置文件** | `stale`    | `revalidate` | `expire` | **描述**                                     |
+| ----------- | ---------- | ------------ | -------- | -------------------------------------------- |
+| `default`   | 5 分钟     | 15 分钟      | 1 年     | 默认配置文件，适合不需要频繁更新的内容       |
+| `seconds`   | 30 秒      | 1 秒         | 1 分钟   | 适用于需要近实时更新的快速变化内容           |
+| `minutes`   | 5 分钟     | 1 分钟       | 1 小时   | 适用于在一小时内频繁更新的内容               |
+| `hours`     | 5 分钟     | 1 小时       | 1 天     | 适用于每天更新但可以稍微过时的内容           |
+| `days`      | 5 分钟     | 1 天         | 1 周     | 适用于每周更新但可以过时一天的内容           |
+| `weeks`     | 5 分钟     | 1 周         | 30 天    | 适用于每月更新但可以过时一周的内容           |
+| `max`       | 5 分钟     | 30 天        | 1 年     | 适用于很少需要更新的非常稳定的内容           |
+
+用于引用缓存配置文件的字符串值没有固有含义；相反，它们充当语义标签。这使你能够更好地理解和管理代码库中的缓存内容。
+
+> **值得注意的是**： 更新 [`staleTimes`](/docs/app/api-reference/config/next-config-js/staleTimes) 和 [`expireTime`](/docs/app/api-reference/config/next-config-js/expireTime) 配置选项也会更新 `default` 缓存配置文件的 `stale` 和 `expire` 属性。
+
+### 自定义缓存配置文件
+
+你可以通过将自定义缓存配置文件添加到 `next.config.ts` 文件中的 [`cacheLife`](/docs/app/api-reference/config/next-config-js/cacheLife) 选项来配置它们。
+
+缓存配置文件是包含以下属性的对象：
+
+| **属性**     | **值**    | **描述**                                                                 | **要求**                  |
+| ------------ | --------- | ------------------------------------------------------------------------ | ------------------------- |
+| `stale`      | `number`  | 客户端在不检查服务器的情况下缓存值的持续时间。                           | 可选                      |
+| `revalidate` | `number`  | 缓存在服务器上刷新的频率；在重新验证时可能会提供过时的值。               | 可选                      |
+| `expire`     | `number`  | 值在切换到动态获取之前可以保持过时的最长持续时间；必须长于 `revalidate`。| 可选 - 必须长于 `revalidate` |
+
+"stale" 属性与 [`staleTimes`](/docs/app/api-reference/config/next-config-js/staleTimes) 设置不同，它专门控制客户端路由器缓存。虽然 `staleTimes` 是影响动态和静态数据所有实例的全局设置，但 `cacheLife` 配置允许你在每个函数或每个路由的基础上定义 "stale" 时间。
+
+### 客户端路由器缓存中的 `stale` 时间
+
+"stale" 属性不设置 `Cache-control: max-age` 标头。相反，它控制客户端路由器缓存。服务器通过 `x-nextjs-stale-time` 响应标头（以秒为单位）将此值发送给客户端，客户端路由器使用它来确定在需要重新验证之前缓存路由的时间。
+
+**客户端强制执行最少 30 秒的过时时间**：这确保预取的数据保持足够长的可用时间，以便用户在预取后点击链接。如果没有这个最小值，非常短的过时时间会导致预取的数据在使用之前过期，使预取无效。
+
+此最小值仅适用于基于时间的过期。当你从 Server Action 调用 [`revalidateTag`](/docs/app/api-reference/functions/revalidateTag)、[`revalidatePath`](/docs/app/api-reference/functions/revalidatePath)、[`updateTag`](/docs/app/api-reference/functions/updateTag) 或 [`refresh`](/docs/app/api-reference/functions/refresh) 时，整个客户端缓存会立即清除，完全绕过过时时间。
+
+## 示例
+
+### 定义可重用的缓存配置文件
+
+你可以通过在 `next.config.ts` 文件中定义可重用的缓存配置文件来创建它。选择一个适合你用例的名称，并为 `stale`、`revalidate` 和 `expire` 属性设置值。你可以根据需要创建任意数量的自定义缓存配置文件。每个配置文件都可以通过其名称作为传递给 `cacheLife` 函数的字符串值来引用。
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  cacheComponents: true,
+  cacheLife: {
+    biweekly: {
+      stale: 60 * 60 * 24 * 14, // 14 天
+      revalidate: 60 * 60 * 24, // 1 天
+      expire: 60 * 60 * 24 * 14, // 14 天
+    },
+  },
+}
+
+module.exports = nextConfig
+```
+
+```js filename="next.config.js" switcher
+const nextConfig = {
+  cacheComponents: true,
+  cacheLife: {
+    biweekly: {
+      stale: 60 * 60 * 24 * 14, // 14 天
+      revalidate: 60 * 60 * 24, // 1 天
+      expire: 60 * 60 * 24 * 14, // 14 天
+    },
+  },
+}
+
+module.exports = nextConfig
+```
+
+上面的示例缓存 14 天，每天检查更新，并在 14 天后使缓存过期。然后，你可以在整个应用程序中通过其名称引用此配置文件：
+
+```tsx filename="app/page.tsx" highlight={5}
+'use cache'
+import { cacheLife } from 'next/cache'
+
+export default async function Page() {
+  cacheLife('biweekly')
+  return <div>Page</div>
+}
+```
+
+### 覆盖默认缓存配置文件
+
+虽然默认缓存配置文件提供了一种有用的方式来思考任何给定的可缓存输出部分可以有多新鲜或多过时，但你可能更喜欢不同的命名配置文件，以更好地与应用程序的缓存策略保持一致。
+
+你可以通过创建与默认配置文件同名的新配置来覆盖默认命名缓存配置文件。
+
+下面的示例显示了如何覆盖默认的 "days" 缓存配置文件：
+
+```ts filename="next.config.ts"
+const nextConfig = {
+  cacheComponents: true,
+  cacheLife: {
+    days: {
+      stale: 3600, // 1 小时
+      revalidate: 900, // 15 分钟
+      expire: 86400, // 1 天
+    },
+  },
+}
+
+module.exports = nextConfig
+```
+
+### 内联定义缓存配置文件
+
+对于特定用例，你可以通过将对象传递给 `cacheLife` 函数来设置自定义缓存配置文件：
+
+```tsx filename="app/page.tsx" highlight={5-9} switcher
+'use cache'
+import { cacheLife } from 'next/cache'
+
+export default async function Page() {
+  cacheLife({
+    stale: 3600, // 1 小时
+    revalidate: 900, // 15 分钟
+    expire: 86400, // 1 天
+  })
+
+  return <div>Page</div>
+}
+```
+
+```jsx filename="app/page.js" highlight={5-9} switcher
+'use cache'
+import { cacheLife } from 'next/cache'
+
+export default async function Page() {
+  cacheLife({
+    stale: 3600, // 1 小时
+    revalidate: 900, // 15 分钟
+    expire: 86400, // 1 天
+  })
+
+  return <div>Page</div>
+}
+```
+
+此内联缓存配置文件将仅应用于创建它的函数或文件。如果你想在整个应用程序中重用相同的配置文件，可以[将配置添加](#defining-reusable-cache-profiles)到 `next.config.ts` 文件的 `cacheLife` 属性。
+
+### `use cache` 和 `cacheLife` 的嵌套使用
+
+在同一路由或组件树中定义多个缓存行为时，如果内部缓存指定了自己的 `cacheLife` 配置文件，外部缓存将遵守它们之中最短的缓存持续时间。**这仅适用于外部缓存没有定义自己的显式 `cacheLife` 配置文件的情况。**
+
+例如，如果你将 `use cache` 指令添加到你的页面，而没有指定缓存配置文件，将隐式应用默认缓存配置文件（`cacheLife("default")`）。如果导入到页面中的组件也使用 `use cache` 指令及其自己的缓存配置文件，则会比较外部和内部缓存配置文件，并应用配置文件中设置的最短持续时间。
+
+```tsx filename="app/components/parent.tsx" highlight={5,6}
+// 父组件
+import { cacheLife } from 'next/cache'
+import { ChildComponent } from './child'
+
+export async function ParentComponent() {
+  'use cache'
+  cacheLife('days')
+
+  return (
+    <div>
+      <ChildComponent />
+    </div>
+  )
+}
+```
+
+在单独的文件中，我们定义了导入的子组件：
+
+```tsx filename="app/components/child.tsx" highlight={4,5}
+// 子组件
+import { cacheLife } from 'next/cache'
+
+export async function ChildComponent() {
+  'use cache'
+  cacheLife('hours')
+  return <div>Child Content</div>
+
+  // 此组件的缓存将遵守较短的 'hours' 配置文件
+}
+```

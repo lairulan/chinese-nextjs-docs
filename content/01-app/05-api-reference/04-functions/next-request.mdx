@@ -1,0 +1,124 @@
+---
+title: NextRequest
+description: NextRequest 的 API 参考。
+slug: /docs/app/api-reference/functions/next-request
+---
+
+{/* The content of this doc is shared between the app and pages router. You can use the `<PagesOnly>Content</PagesOnly>` component to add content that is specific to the Pages Router. Any shared content should not be wrapped in a component. */}
+
+NextRequest 扩展了 [Web Request API](https://developer.mozilla.org/docs/Web/API/Request)，提供了额外的便捷方法。
+
+## `cookies`
+
+读取或修改请求的 [`Set-Cookie`](https://developer.mozilla.org/docs/Web/HTTP/Headers/Set-Cookie) 头。
+
+### `set(name, value)`
+
+给定一个名称，在请求上设置具有给定值的 cookie。
+
+```ts
+// 给定传入请求 /home
+// 设置一个 cookie 来隐藏横幅
+// 请求将有一个 `Set-Cookie:show-banner=false;path=/home` 头
+request.cookies.set('show-banner', 'false')
+```
+
+### `get(name)`
+
+给定一个 cookie 名称，返回该 cookie 的值。如果未找到 cookie，则返回 `undefined`。如果找到多个 cookie，则返回第一个。
+
+```ts
+// 给定传入请求 /home
+// { name: 'show-banner', value: 'false', Path: '/home' }
+request.cookies.get('show-banner')
+```
+
+### `getAll()`
+
+给定一个 cookie 名称，返回该 cookie 的值。如果未给定名称，则返回请求上的所有 cookie。
+
+```ts
+// 给定传入请求 /home
+// [
+//   { name: 'experiments', value: 'new-pricing-page', Path: '/home' },
+//   { name: 'experiments', value: 'winter-launch', Path: '/home' },
+// ]
+request.cookies.getAll('experiments')
+// 或者，获取请求的所有 cookie
+request.cookies.getAll()
+```
+
+### `delete(name)`
+
+给定一个 cookie 名称，从请求中删除该 cookie。
+
+```ts
+// 删除成功返回 true，没有删除任何内容返回 false
+request.cookies.delete('experiments')
+```
+
+### `has(name)`
+
+给定一个 cookie 名称，如果该 cookie 存在于请求中，则返回 `true`。
+
+```ts
+// 如果 cookie 存在返回 true，不存在返回 false
+request.cookies.has('experiments')
+```
+
+### `clear()`
+
+从请求中移除 `Set-Cookie` 头。
+
+```ts
+request.cookies.clear()
+```
+
+## `nextUrl`
+
+扩展了原生 [`URL`](https://developer.mozilla.org/docs/Web/API/URL) API，提供了额外的便捷方法，包括 Next.js 特定的属性。
+
+```ts
+// 给定对 /home 的请求，pathname 是 /home
+request.nextUrl.pathname
+// 给定对 /home?name=lee 的请求，searchParams 是 { 'name': 'lee' }
+request.nextUrl.searchParams
+```
+
+以下选项可用：
+
+<PagesOnly>
+
+| 属性              | 类型                      | 描述                                                                                                        |
+| ----------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `basePath`        | `string`                  | URL 的 [base path](/docs/pages/api-reference/config/next-config-js/basePath)。                              |
+| `buildId`         | `string` \| `undefined`   | Next.js 应用程序的构建标识符。可以[自定义](/docs/pages/api-reference/config/next-config-js/generateBuildId)。 |
+| `defaultLocale`   | `string` \| `undefined`   | [国际化](/docs/pages/guides/internationalization)的默认语言环境。                                             |
+| `domainLocale`    |                           |                                                                                                             |
+| - `defaultLocale` | `string`                  | 域内的默认语言环境。                                                                                          |
+| - `domain`        | `string`                  | 与特定语言环境关联的域。                                                                                      |
+| - `http`          | `boolean` \| `undefined`  | 指示域是否使用 HTTP。                                                                                        |
+| `locales`         | `string[]` \| `undefined` | 可用语言环境的数组。                                                                                          |
+| `locale`          | `string` \| `undefined`   | 当前活动的语言环境。                                                                                          |
+| `url`             | `URL`                     | URL 对象。                                                                                                  |
+
+</PagesOnly>
+
+<AppOnly>
+
+| 属性           | 类型                    | 描述                                                                                                         |
+| -------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `basePath`     | `string`                | URL 的 [base path](/docs/app/api-reference/config/next-config-js/basePath)。                                 |
+| `buildId`      | `string` \| `undefined` | Next.js 应用程序的构建标识符。可以[自定义](/docs/app/api-reference/config/next-config-js/generateBuildId)。   |
+| `pathname`     | `string`                | URL 的路径名。                                                                                                |
+| `searchParams` | `Object`                | URL 的搜索参数。                                                                                              |
+
+> **注意：**Pages Router 的国际化属性不可在 App Router 中使用。了解更多关于 [App Router 的国际化](/docs/app/guides/internationalization)。
+
+</AppOnly>
+
+## 版本历史
+
+| 版本      | 变更                      |
+| --------- | ------------------------- |
+| `v15.0.0` | 移除了 `ip` 和 `geo`。    |

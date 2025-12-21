@@ -1,0 +1,80 @@
+---
+title: userAgent
+description: userAgent 辅助函数扩展了 Web Request API，提供了额外的属性和方法来与请求中的用户代理对象进行交互。
+slug: /docs/app/api-reference/functions/userAgent
+---
+
+{/* The content of this doc is shared between the app and pages router. You can use the `<PagesOnly>Content</PagesOnly>` component to add content that is specific to the Pages Router. Any shared content should not be wrapped in a component. */}
+
+`userAgent` 辅助函数扩展了 [Web Request API](https://developer.mozilla.org/docs/Web/API/Request)，提供了额外的属性和方法来与请求中的用户代理对象进行交互。
+
+```ts filename="proxy.ts" switcher
+import { NextRequest, NextResponse, userAgent } from 'next/server'
+
+export function proxy(request: NextRequest) {
+  const url = request.nextUrl
+  const { device } = userAgent(request)
+
+  // device.type 可以是：'mobile'、'tablet'、'console'、'smarttv'、
+  // 'wearable'、'embedded'，或 undefined（用于桌面浏览器）
+  const viewport = device.type || 'desktop'
+
+  url.searchParams.set('viewport', viewport)
+  return NextResponse.rewrite(url)
+}
+```
+
+```js filename="proxy.js" switcher
+import { NextResponse, userAgent } from 'next/server'
+
+export function proxy(request) {
+  const url = request.nextUrl
+  const { device } = userAgent(request)
+
+  // device.type 可以是：'mobile'、'tablet'、'console'、'smarttv'、
+  // 'wearable'、'embedded'，或 undefined（用于桌面浏览器）
+  const viewport = device.type || 'desktop'
+
+  url.searchParams.set('viewport', viewport)
+  return NextResponse.rewrite(url)
+}
+```
+
+## `isBot`
+
+一个布尔值，表示请求是否来自已知的机器人。
+
+## `browser`
+
+一个对象，包含请求中使用的浏览器信息。
+
+- `name`：一个字符串，表示浏览器的名称，如果无法识别则为 `undefined`。
+- `version`：一个字符串，表示浏览器的版本，或 `undefined`。
+
+## `device`
+
+一个对象，包含请求中使用的设备信息。
+
+- `model`：一个字符串，表示设备的型号，或 `undefined`。
+- `type`：一个字符串，表示设备的类型，例如 `console`、`mobile`、`tablet`、`smarttv`、`wearable`、`embedded`，或 `undefined`。
+- `vendor`：一个字符串，表示设备的供应商，或 `undefined`。
+
+## `engine`
+
+一个对象，包含浏览器引擎的信息。
+
+- `name`：一个字符串，表示引擎的名称。可能的值包括：`Amaya`、`Blink`、`EdgeHTML`、`Flow`、`Gecko`、`Goanna`、`iCab`、`KHTML`、`Links`、`Lynx`、`NetFront`、`NetSurf`、`Presto`、`Tasman`、`Trident`、`w3m`、`WebKit` 或 `undefined`。
+- `version`：一个字符串，表示引擎的版本，或 `undefined`。
+
+## `os`
+
+一个对象，包含操作系统的信息。
+
+- `name`：一个字符串，表示操作系统的名称，或 `undefined`。
+- `version`：一个字符串，表示操作系统的版本，或 `undefined`。
+
+## `cpu`
+
+一个对象，包含 CPU 架构的信息。
+
+- `architecture`：一个字符串，表示 CPU 的架构。可能的值包括：`68k`、`amd64`、`arm`、`arm64`、`armhf`、`avr`、`ia32`、`ia64`、`irix`、`irix64`、`mips`、`mips64`、`pa-risc`、`ppc`、`sparc`、`sparc64` 或 `undefined`

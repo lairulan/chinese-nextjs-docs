@@ -1,0 +1,24 @@
+---
+title: bundlePagesRouterDependencies
+description: 为页面路由器启用自动依赖打包
+slug: /docs/pages/api-reference/config/next-config-js/bundlePagesRouterDependencies
+---
+
+为页面路由器应用程序启用自动服务器端依赖打包。匹配应用路由器中的自动依赖打包。
+
+```js filename="next.config.js"
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  bundlePagesRouterDependencies: true,
+}
+
+module.exports = nextConfig
+```
+
+使用 [`serverExternalPackages`](/docs/pages/api-reference/config/next-config-js/serverExternalPackages) 选项明确选择不打包某些包。
+
+## 版本历史
+
+| 版本      | 变更                                                                                                     |
+| --------- | --------------------------------------------------------------------------------------------------------- |
+| `v15.0.0` | 从实验性移至稳定版。从 `bundlePagesExternals` 重命名为 `bundlePagesRouterDependencies`                   |

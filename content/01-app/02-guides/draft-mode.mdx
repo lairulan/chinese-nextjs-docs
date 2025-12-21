@@ -1,0 +1,216 @@
+---
+title: 如何在 Next.js 中使用 Draft Mode 预览内容
+nav_title: Draft Mode
+description: Next.js 拥有 draft mode 来在静态和动态页面之间切换。你可以在这里了解它在 App Router 中的工作原理。
+related:
+  title: 下一步
+  description: 查看 API 参考以了解更多关于如何使用 Draft Mode 的信息。
+  links:
+    - app/api-reference/functions/draft-mode
+slug: /docs/app/guides/draft-mode
+---
+
+**Draft Mode** 允许你在 Next.js 应用程序中预览来自 headless CMS 的草稿内容。这对于在构建时生成的静态页面非常有用，因为它允许你切换到[动态渲染](/docs/app/guides/caching#dynamic-rendering)并查看草稿更改，而无需重新构建整个站点。
+
+本页介绍如何启用和使用 Draft Mode。
+
+## 步骤 1：创建 Route Handler
+
+创建一个 [Route Handler](/docs/app/api-reference/file-conventions/route)。它可以有任何名称，例如 `app/api/draft/route.ts`。
+
+```ts filename="app/api/draft/route.ts" switcher
+export async function GET(request: Request) {
+  return new Response('')
+}
+```
+
+```js filename="app/api/draft/route.js" switcher
+export async function GET() {
+  return new Response('')
+}
+```
+
+然后，导入 [`draftMode`](/docs/app/api-reference/functions/draft-mode) 函数并调用 `enable()` 方法。
+
+```ts filename="app/api/draft/route.ts" switcher
+import { draftMode } from 'next/headers'
+
+export async function GET(request: Request) {
+  const draft = await draftMode()
+  draft.enable()
+  return new Response('Draft mode is enabled')
+}
+```
+
+```js filename="app/api/draft/route.js" switcher
+import { draftMode } from 'next/headers'
+
+export async function GET(request) {
+  const draft = await draftMode()
+  draft.enable()
+  return new Response('Draft mode is enabled')
+}
+```
+
+这将设置一个 **cookie** 来启用 draft mode。包含此 cookie 的后续请求将触发 draft mode 并改变静态生成页面的行为。
+
+你可以通过访问 `/api/draft` 并查看浏览器的开发者工具来手动测试这一点。注意 `Set-Cookie` 响应头中有一个名为 `__prerender_bypass` 的 cookie。
+
+## 步骤 2：从你的 Headless CMS 访问 Route Handler
+
+> 这些步骤假设你使用的 headless CMS 支持设置**自定义草稿 URL**。如果不支持，你仍然可以使用此方法来保护你的草稿 URL，但你需要手动构建和访问草稿 URL。具体步骤将根据你使用的 headless CMS 而有所不同。
+
+要从你的 headless CMS 安全地访问 Route Handler：
+
+1. 使用你选择的 token 生成器创建一个**密钥 token 字符串**。此密钥只有你的 Next.js 应用程序和你的 headless CMS 知道。
+2. 如果你的 headless CMS 支持设置自定义草稿 URL，请指定一个草稿 URL（这假设你的 Route Handler 位于 `app/api/draft/route.ts`）。例如：
+
+```bash filename="Terminal"
+https://<your-site>/api/draft?secret=<token>&slug=<path>
+```
+
+> - `<your-site>` 应该是你的部署域名。
+> - `<token>` 应该替换为你生成的密钥 token。
+> - `<path>` 应该是你想要查看的页面的路径。如果你想查看 `/posts/one`，那么你应该使用 `&slug=/posts/one`。
+>
+> 你的 headless CMS 可能允许你在草稿 URL 中包含一个变量，以便 `<path>` 可以根据 CMS 的数据动态设置，如：`&slug=/posts/{entry.fields.slug}`
+
+3. 在你的 Route Handler 中，检查密钥是否匹配以及 `slug` 参数是否存在（如果不存在，请求应该失败），调用 `draftMode.enable()` 来设置 cookie。然后，将浏览器重定向到 `slug` 指定的路径：
+
+```ts filename="app/api/draft/route.ts" switcher
+import { draftMode } from 'next/headers'
+import { redirect } from 'next/navigation'
+
+export async function GET(request: Request) {
+  // 解析查询字符串参数
+  const { searchParams } = new URL(request.url)
+  const secret = searchParams.get('secret')
+  const slug = searchParams.get('slug')
+
+  // 检查 secret 和 next 参数
+  // 此密钥应该只有此 Route Handler 和 CMS 知道
+  if (secret !== 'MY_SECRET_TOKEN' || !slug) {
+    return new Response('Invalid token', { status: 401 })
+  }
+
+  // 获取 headless CMS 以检查提供的 `slug` 是否存在
+  // getPostBySlug 将实现对 headless CMS 的所需获取逻辑
+  const post = await getPostBySlug(slug)
+
+  // 如果 slug 不存在，阻止启用 draft mode
+  if (!post) {
+    return new Response('Invalid slug', { status: 401 })
+  }
+
+  // 通过设置 cookie 启用 Draft Mode
+  const draft = await draftMode()
+  draft.enable()
+
+  // 重定向到从获取的文章中得到的路径
+  // 我们不重定向到 searchParams.slug，因为这可能导致开放重定向漏洞
+  redirect(post.slug)
+}
+```
+
+```js filename="app/api/draft/route.js" switcher
+import { draftMode } from 'next/headers'
+import { redirect } from 'next/navigation'
+
+export async function GET(request) {
+  // 解析查询字符串参数
+  const { searchParams } = new URL(request.url)
+  const secret = searchParams.get('secret')
+  const slug = searchParams.get('slug')
+
+  // 检查 secret 和 next 参数
+  // 此密钥应该只有此 Route Handler 和 CMS 知道
+  if (secret !== 'MY_SECRET_TOKEN' || !slug) {
+    return new Response('Invalid token', { status: 401 })
+  }
+
+  // 获取 headless CMS 以检查提供的 `slug` 是否存在
+  // getPostBySlug 将实现对 headless CMS 的所需获取逻辑
+  const post = await getPostBySlug(slug)
+
+  // 如果 slug 不存在，阻止启用 draft mode
+  if (!post) {
+    return new Response('Invalid slug', { status: 401 })
+  }
+
+  // 通过设置 cookie 启用 Draft Mode
+  const draft = await draftMode()
+  draft.enable()
+
+  // 重定向到从获取的文章中得到的路径
+  // 我们不重定向到 searchParams.slug，因为这可能导致开放重定向漏洞
+  redirect(post.slug)
+}
+```
+
+如果成功，浏览器将被重定向到你想要查看的路径，并带有 draft mode cookie。
+
+## 步骤 3：预览草稿内容
+
+下一步是更新你的页面以检查 `draftMode().isEnabled` 的值。
+
+如果你请求一个设置了 cookie 的页面，那么数据将在**请求时**获取（而不是在构建时）。
+
+此外，`isEnabled` 的值将为 `true`。
+
+```tsx filename="app/page.tsx" switcher
+// 获取数据的页面
+import { draftMode } from 'next/headers'
+
+async function getData() {
+  const { isEnabled } = await draftMode()
+
+  const url = isEnabled
+    ? 'https://draft.example.com'
+    : 'https://production.example.com'
+
+  const res = await fetch(url)
+
+  return res.json()
+}
+
+export default async function Page() {
+  const { title, desc } = await getData()
+
+  return (
+    <main>
+      <h1>{title}</h1>
+      <p>{desc}</p>
+    </main>
+  )
+}
+```
+
+```jsx filename="app/page.js" switcher
+// 获取数据的页面
+import { draftMode } from 'next/headers'
+
+async function getData() {
+  const { isEnabled } = await draftMode()
+
+  const url = isEnabled
+    ? 'https://draft.example.com'
+    : 'https://production.example.com'
+
+  const res = await fetch(url)
+
+  return res.json()
+}
+
+export default async function Page() {
+  const { title, desc } = await getData()
+
+  return (
+    <main>
+      <h1>{title}</h1>
+      <p>{desc}</p>
+    </main>
+  )
+}
+```
+
+如果你从 headless CMS 或使用 URL 手动访问 draft Route Handler（带有 `secret` 和 `slug`），你现在应该能够看到草稿内容。而且，如果你更新草稿而不发布，你应该能够查看草稿。

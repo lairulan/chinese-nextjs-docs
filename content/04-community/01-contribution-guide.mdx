@@ -1,0 +1,416 @@
+---
+title: 文档贡献指南
+nav_title: 贡献指南
+description: 了解如何为 Next.js 文档做出贡献
+slug: /docs/community/contribution-guide
+---
+
+欢迎来到 Next.js 文档贡献指南！我们很高兴你能来到这里。
+
+本页面提供了如何编辑 Next.js 文档的说明。我们的目标是确保社区中的每个人都能够自信地为改进我们的文档做出贡献。
+
+## 为什么要贡献？
+
+开源工作永无止境，文档也是如此。为文档做贡献是初学者参与开源的好方法，也是经验丰富的开发者在与社区分享知识的同时阐明更复杂主题的好方式。
+
+通过为 Next.js 文档做出贡献，你正在帮助我们为所有开发者构建一个更强大的学习资源。无论你是发现了拼写错误、令人困惑的部分，还是意识到某个特定主题缺失，你的贡献都是受欢迎和赞赏的。
+
+## 如何贡献
+
+文档内容可以在 [Next.js 仓库](https://github.com/vercel/next.js/tree/canary/docs)中找到。要做出贡献，你可以直接在 GitHub 上编辑文件，或者克隆仓库并在本地编辑文件。
+
+### GitHub 工作流程
+
+如果你是 GitHub 新手，我们建议阅读 [GitHub 开源指南](https://opensource.guide/how-to-contribute/#opening-a-pull-request)，学习如何 fork 仓库、创建分支和提交 pull request。
+
+> **值得注意的是**：底层文档代码位于一个私有代码库中，该代码库会同步到 Next.js 公共仓库。这意味着你无法在本地预览文档。但是，在合并 pull request 后，你将在 [nextjs.org](https://nextjs.org/docs) 上看到你的更改。
+
+### 编写 MDX
+
+文档使用 [MDX](https://mdxjs.com/) 编写，这是一种支持 JSX 语法的 markdown 格式。这使我们能够在文档中嵌入 React 组件。请参阅 [GitHub Markdown 指南](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax)快速了解 markdown 语法。
+
+### VSCode
+
+#### 本地预览更改
+
+VSCode 有一个内置的 markdown 预览器，你可以使用它在本地查看你的编辑。要为 MDX 文件启用预览器，你需要在用户设置中添加一个配置选项。
+
+打开命令面板（Mac 上为 `⌘ + ⇧ + P`，Windows 上为 `Ctrl + Shift + P`），然后搜索 `Preferences: Open User Settings (JSON)`。
+
+然后，在你的 `settings.json` 文件中添加以下行：
+
+```json filename="settings.json"
+{
+  "files.associations": {
+    "*.mdx": "markdown"
+  }
+}
+```
+
+接下来，再次打开命令面板，搜索 `Markdown: Preview File` 或 `Markdown: Open Preview to the Side`。这将打开一个预览窗口，你可以在其中看到格式化后的更改。
+
+#### 扩展
+
+我们还推荐 VSCode 用户使用以下扩展：
+
+- [MDX](https://marketplace.visualstudio.com/items?itemName=unifiedjs.vscode-mdx)：为 MDX 提供智能感知和语法高亮。
+- [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)：保存时格式化 MDX 文件。
+
+### 审查流程
+
+提交贡献后，Next.js 或开发者体验团队将审查你的更改，提供反馈，并在准备就绪时合并 pull request。
+
+如果你有任何问题或需要进一步帮助，请在你的 PR 评论中告诉我们。感谢你为 Next.js 文档做出贡献并成为我们社区的一员！
+
+> **提示**：在提交 PR 之前运行 `pnpm prettier-fix` 来运行 Prettier。
+
+## 文件结构
+
+文档使用**文件系统路由**。[`/docs`](https://github.com/vercel/next.js/tree/canary/docs) 内的每个文件夹和文件都代表一个路由段。这些段用于生成 URL 路径、导航和面包屑。
+
+文件结构反映了你在网站上看到的导航，默认情况下，导航项按字母顺序排序。但是，我们可以通过在文件夹或文件名前添加两位数字（`00-`）来更改项的顺序。
+
+例如，在 [functions API 参考](/docs/app/api-reference/functions)中，页面按字母顺序排序，因为这使开发者更容易找到特定的函数：
+
+```txt
+04-functions
+├── after.mdx
+├── cacheLife.mdx
+├── cacheTag.mdx
+└── ...
+```
+
+但是，在[路由部分](/docs/app)中，文件以两位数字为前缀，按照开发者应该学习这些概念的顺序排序：
+
+```txt
+01-routing
+├── 01-defining-routes.mdx
+├── 02-pages.mdx
+├── 03-layouts-and-templates.mdx
+└── ...
+```
+
+要快速找到页面，你可以使用 `⌘ + P`（Mac）或 `Ctrl + P`（Windows）在 VSCode 上打开搜索栏。然后，输入你要查找的页面的 slug。例如 `defining-routes`
+
+> **为什么不使用清单文件？**
+>
+> 我们考虑过使用清单文件（另一种生成文档导航的流行方式），但我们发现清单文件很快就会与文件不同步。文件系统路由迫使我们思考文档的结构，并且对 Next.js 来说感觉更加原生。
+
+## 元数据
+
+每个页面在文件顶部都有一个元数据块，由三个破折号分隔。
+
+### 必填字段
+
+以下字段是**必填**的：
+
+| 字段          | 描述                                                      |
+| ------------- | --------------------------------------------------------- |
+| `title`       | 页面的 `<h1>` 标题，用于 SEO 和 OG 图像。                |
+| `description` | 页面的描述，用于 SEO 的 `<meta name="description">` 标签。|
+
+```yaml filename="required-fields.mdx"
+---
+title: Page Title
+description: Page Description
+---
+```
+
+一个好的做法是将页面标题限制在 2-3 个词（例如 Optimizing Images），将描述限制在 1-2 句话（例如 Learn how to optimize images in Next.js）。
+
+### 可选字段
+
+以下字段是**可选**的：
+
+| 字段        | 描述                                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------------------- |
+| `nav_title` | 覆盖导航中的页面标题。当页面标题太长无法适应时很有用。如果未提供，则使用 `title` 字段。                 |
+| `source`    | 将内容拉入共享页面。请参阅[共享页面](#shared-pages)。                                                   |
+| `related`   | 文档底部的相关页面列表。这些将自动转换为卡片。请参阅[相关链接](#related-links)。                        |
+| `version`   | 开发阶段。例如 `experimental`、`legacy`、`unstable`、`RC`                                               |
+
+```yaml filename="optional-fields.mdx"
+---
+nav_title: Nav Item Title
+source: /docs/app/building-your-application/optimizing/images
+related:
+  description: See the image component API reference.
+  links:
+    - app/api-reference/components/image
+version: experimental
+---
+```
+
+## `App` 和 `Pages` 文档
+
+由于 **App Router** 和 **Pages Router** 中的大多数功能完全不同，它们各自的文档保存在单独的部分（`02-app` 和 `03-pages`）中。但是，它们之间有一些共享的功能。
+
+### 共享页面
+
+为了避免内容重复和内容不同步的风险，我们使用 `source` 字段将内容从一个页面拉入另一个页面。例如，`<Link>` 组件在 **App** 和 **Pages** 中的行为_大部分_相同。我们可以将内容从 `app/.../link.mdx` 拉入 `pages/.../link.mdx`，而不是重复内容：
+
+```mdx filename="app/.../link.mdx"
+---
+title: <Link>
+description: API reference for the <Link> component.
+---
+
+This API reference will help you understand how to use the props
+and configuration options available for the Link Component.
+```
+
+```mdx filename="pages/.../link.mdx"
+---
+title: <Link>
+description: API reference for the <Link> component.
+source: /docs/app/api-reference/components/link
+---
+
+{/* DO NOT EDIT THIS PAGE. */}
+{/* The content of this page is pulled from the source above. */}
+```
+
+因此，我们可以在一个地方编辑内容，并让它反映在两个部分中。
+
+### 共享内容
+
+在共享页面中，有时可能会有特定于 **App Router** 或 **Pages Router** 的内容。例如，`<Link>` 组件有一个 `shallow` 属性，该属性仅在 **Pages** 中可用，但在 **App** 中不可用。
+
+为了确保内容仅显示在正确的路由器中，我们可以将内容块包装在 `<AppOnly>` 或 `<PagesOnly>` 组件中：
+
+```mdx filename="app/.../link.mdx"
+This content is shared between App and Pages.
+
+<PagesOnly>
+
+This content will only be shown on the Pages docs.
+
+</PagesOnly>
+
+This content is shared between App and Pages.
+```
+
+你可能会在示例和代码块中使用这些组件。
+
+## 代码块
+
+代码块应包含可以复制和粘贴的最小工作示例。这意味着代码应该能够在没有任何额外配置的情况下运行。
+
+例如，如果你要展示如何使用 `<Link>` 组件，你应该包括 `import` 语句和 `<Link>` 组件本身。
+
+```tsx filename="app/page.tsx"
+import Link from 'next/link'
+
+export default function Page() {
+  return <Link href="/about">About</Link>
+}
+```
+
+在提交之前始终在本地运行示例。这将确保代码是最新的并且可以正常工作。
+
+### 语言和文件名
+
+代码块应该有一个包含语言和 `filename` 的标题。添加 `filename` 属性以渲染一个特殊的 Terminal 图标，帮助引导用户在哪里输入命令。例如：
+
+````mdx filename="code-example.mdx"
+```bash filename="Terminal"
+npx create-next-app
+```
+````
+
+文档中的大多数示例都是用 `tsx` 和 `jsx` 编写的，少数用 `bash` 编写。但是，你可以使用任何支持的语言，这里是[完整列表](https://github.com/shikijs/shiki/blob/main/docs/languages.md#all-languages)。
+
+编写 JavaScript 代码块时，我们使用以下语言和扩展名组合。
+
+|                          | 语言     | 扩展名  |
+| ------------------------ | -------- | ------- |
+| 带有 JSX 代码的 JavaScript 文件 | ```jsx   | .js     |
+| 不带 JSX 的 JavaScript 文件    | ```js    | .js     |
+| 带有 JSX 的 TypeScript 文件    | ```tsx   | .tsx    |
+| 不带 JSX 的 TypeScript 文件    | ```ts    | .ts     |
+
+> **值得注意的是**：
+>
+> - 确保对带有 **JSX** 代码的 JavaScript 文件使用 **`.js`** 扩展名。
+> - 例如，```jsx filename="app/layout.js"
+
+### TS 和 JS 切换器
+
+添加语言切换器以在 TypeScript 和 JavaScript 之间切换。代码块应该首先是 TypeScript，并提供 JavaScript 版本以适应用户。
+
+目前，我们将 TS 和 JS 示例依次编写，并使用 `switcher` 属性链接它们：
+
+````mdx filename="code-example.mdx"
+```tsx filename="app/page.tsx" switcher
+
+```
+
+```jsx filename="app/page.js" switcher
+
+```
+````
+
+> **值得注意的是**：我们计划在未来自动将 TypeScript 代码片段编译为 JavaScript。在此期间，你可以使用 [transform.tools](https://transform.tools/typescript-to-javascript)。
+
+### 行高亮
+
+代码行可以高亮显示。当你想引起对代码特定部分的注意时，这很有用。你可以通过向 `highlight` 属性传递数字来高亮显示行。
+
+**单行：** `highlight={1}`
+
+```tsx filename="app/page.tsx" {1}
+import Link from 'next/link'
+
+export default function Page() {
+  return <Link href="/about">About</Link>
+}
+```
+
+**多行：** `highlight={1,3}`
+
+```tsx filename="app/page.tsx" highlight={1,3}
+import Link from 'next/link'
+
+export default function Page() {
+  return <Link href="/about">About</Link>
+}
+```
+
+**行范围：** `highlight={1-5}`
+
+```tsx filename="app/page.tsx" highlight={1-5}
+import Link from 'next/link'
+
+export default function Page() {
+  return <Link href="/about">About</Link>
+}
+```
+
+## 图标
+
+文档中可以使用以下图标：
+
+```mdx filename="mdx-icon.mdx"
+<Check size={18} />
+<Cross size={18} />
+```
+
+**输出：**
+
+<Check size={18} />
+<Cross size={18} />
+
+我们不在文档中使用表情符号。
+
+## 注释
+
+对于重要但不重要的信息，使用注释。注释是在不分散用户对主要内容注意力的情况下添加信息的好方法。
+
+```mdx filename="notes.mdx"
+> **值得注意的是**：这是单行注释。
+
+> **值得注意的是**：
+>
+> - 我们也使用这种格式进行多行注释。
+> - 有时有多个值得了解或记住的项目。
+```
+
+**输出：**
+
+> **值得注意的是**：这是单行注释。
+
+> **值得注意的是**：
+>
+> - 我们也使用这种格式进行多行注释。
+> - 有时有多个值得了解或记住的项目。
+
+## 相关链接
+
+相关链接通过添加指向逻辑下一步的链接来引导用户的学习旅程。
+
+- 链接将显示在页面主要内容下方的卡片中。
+- 对于具有子页面的页面，将自动生成链接。
+
+使用页面元数据中的 `related` 字段创建相关链接。
+
+```yaml filename="example.mdx"
+---
+related:
+  description: Learn how to quickly get started with your first application.
+  links:
+    - app/building-your-application/routing/defining-routes
+    - app/building-your-application/data-fetching
+    - app/api-reference/file-conventions/page
+---
+```
+
+### 嵌套字段
+
+| 字段          | 是否必填 | 描述                                                                                                             |
+| ------------- | -------- | ---------------------------------------------------------------------------------------------------------------- |
+| `title`       | 可选     | 卡片列表的标题。默认为 **Next Steps**。                                                                          |
+| `description` | 可选     | 卡片列表的描述。                                                                                                 |
+| `links`       | 必填     | 指向其他文档页面的链接列表。每个列表项应该是相对 URL 路径（不带前导斜杠），例如 `app/api-reference/file-conventions/page` |
+
+## 图表
+
+图表是解释复杂概念的好方法。我们使用 [Figma](https://www.figma.com/) 创建图表，遵循 Vercel 的设计指南。
+
+图表目前位于我们私有 Next.js 网站的 `/public` 文件夹中。如果你想更新或添加图表，请打开一个 [GitHub issue](https://github.com/vercel/next.js/issues/new?assignees=&labels=template%3A+documentation&projects=&template=4.docs_request.yml&title=Docs%3A+) 并提出你的想法。
+
+## 自定义组件和 HTML
+
+这些是文档可用的 React 组件：`<Image />`（next/image）、`<PagesOnly />`、`<AppOnly />`、`<Cross />` 和 `<Check />`。除了 `<details>` 标签外，我们不允许在文档中使用原始 HTML。
+
+如果你对新组件有想法，请打开一个 [GitHub issue](https://github.com/vercel/next.js/issues/new/choose)。
+
+## 风格指南
+
+本节包含为那些刚接触技术写作的人提供的编写文档指南。
+
+### 页面模板
+
+虽然我们没有严格的页面模板，但你会看到文档中重复的页面部分：
+
+- **概述：** 页面的第一段应该告诉用户该功能是什么以及用途。然后是最小工作示例或其 API 参考。
+- **约定：** 如果该功能有约定，应在此处解释。
+- **示例**：展示如何在不同用例中使用该功能。
+- **API 表**：API 页面应该在页面顶部有一个包含跳转到部分链接的概述表（如果可能）。
+- **后续步骤（相关链接）**：添加相关页面的链接以引导用户的学习旅程。
+
+根据需要随意添加这些部分。
+
+### 页面类型
+
+文档页面也分为两类：概念性和参考性。
+
+- **概念性**页面用于解释概念或功能。它们通常比参考页面更长，包含更多信息。在 Next.js 文档中，概念性页面位于**构建你的应用程序**部分。
+- **参考性**页面用于解释特定的 API。它们通常更短且更集中。在 Next.js 文档中，参考页面位于 **API 参考**部分。
+
+> **值得注意的是**：根据你贡献的页面，你可能需要遵循不同的语气和风格。例如，概念性页面更具指导性，并使用"你"这个词来称呼用户。参考页面更具技术性，它们使用更多祈使词，如"创建、更新、接受"，并倾向于省略"你"这个词。
+
+### 语气
+
+以下是一些在文档中保持一致风格和语气的指南：
+
+- 写清晰、简洁的句子。避免跑题。
+  - 如果你发现自己使用了很多逗号，可以考虑将句子分成多个句子或使用列表。
+  - 用更简单的词替换复杂的词。例如，_使用_而不是_利用_。
+- 注意"this"这个词的使用。它可能模糊且令人困惑，如果不清楚，不要害怕重复句子的主语。
+  - 例如，_Next.js 使用 React_ 而不是 _Next.js 使用这个_。
+- 使用主动语态而不是被动语态。主动句子更容易阅读。
+  - 例如，_Next.js 使用 React_ 而不是 _React 被 Next.js 使用_。如果你发现自己使用了_被_和_由_等词，你可能正在使用被动语态。
+- 避免使用"简单"、"快速"、"容易"、"只是"等词。这是主观的，可能会让用户感到沮丧。
+- 避免使用"不要"、"不能"、"不会"等否定词。这可能会让读者感到沮丧。
+  - 例如，_"你可以使用 `Link` 组件在页面之间创建链接"_ 而不是 _"不要使用 `<a>` 标签在页面之间创建链接"_。
+- 以第二人称（你/你的）写作。这更个性化且更有吸引力。
+- 使用性别中立的语言。在提到受众时使用_开发者_、_用户_或_读者_。
+- 如果添加代码示例，请确保它们格式正确且可以正常工作。
+
+虽然这些指南并不详尽，但它们应该能帮助你入门。如果你想更深入地了解技术写作，请查看 [Google 技术写作课程](https://developers.google.com/tech-writing/overview)。
+
+---
+
+感谢你为文档做出贡献并成为 Next.js 社区的一员！
+
+{/* To do: Latest Contributors Component */}

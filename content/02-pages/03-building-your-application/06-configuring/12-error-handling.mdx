@@ -1,0 +1,105 @@
+---
+title: 错误处理
+description: 在你的 Next.js 应用中处理错误。
+slug: /docs/pages/building-your-application/configuring/error-handling
+---
+
+本文档解释了如何处理开发、服务器端和客户端错误。
+
+## 开发阶段的错误处理
+
+在 Next.js 应用的开发阶段出现运行时错误时，你将遇到一个**遮罩层**。它是覆盖网页的模态框。仅在使用 `next dev` 通过 `pnpm dev`、`npm run dev`、`yarn dev` 或 `bun dev` 运行开发服务器时可见，在生产环境中不会显示。修复错误将自动关闭遮罩层。
+
+以下是遮罩层的示例：
+
+{/* TODO UPDATE SCREENSHOT */}
+![开发模式下遮罩层的示例](https://assets.vercel.com/image/upload/v1645118290/docs-assets/static/docs/error-handling/overlay.png)
+
+## 服务器错误处理
+
+Next.js 默认提供静态的 500 页面来处理应用中发生的服务器端错误。你也可以通过创建 `pages/500.js` 文件来[自定义此页面](/docs/pages/building-your-application/routing/custom-error#customizing-the-500-page)。
+
+应用中的 500 页面不会向应用用户显示具体错误。
+
+你还可以使用 [404 页面](/docs/pages/building-your-application/routing/custom-error#404-page)来处理特定的运行时错误，如 `文件未找到`。
+
+## 客户端错误处理
+
+React [错误边界](https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary)是一种优雅的方式，可以处理客户端的 JavaScript 错误，使应用的其他部分继续工作。除了防止页面崩溃，它还允许你提供自定义的备用组件，甚至记录错误信息。
+
+要在 Next.js 应用中使用错误边界，你必须创建一个类组件 `ErrorBoundary`，并在 `pages/_app.js` 文件中包装 `Component` 属性。该组件将负责：
+
+- 在抛出错误后渲染备用 UI
+- 提供重置应用状态的方法
+- 记录错误信息
+
+你可以通过扩展 `React.Component` 来创建 `ErrorBoundary` 类组件。例如：
+
+```jsx
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props)
+
+    // 定义一个状态变量来跟踪是否存在错误
+    this.state = { hasError: false }
+  }
+  static getDerivedStateFromError(error) {
+    // 更新状态，以便下一次渲染将显示备用 UI
+
+    return { hasError: true }
+  }
+  componentDidCatch(error, errorInfo) {
+    // 你可以在此处使用自己的错误日志服务
+    console.log({ error, errorInfo })
+  }
+  render() {
+    // 检查是否抛出错误
+    if (this.state.hasError) {
+      // 你可以渲染任何自定义的备用 UI
+      return (
+        <div>
+          <h2>糟糕，出现了一个错误！</h2>
+          <button
+            type="button"
+            onClick={() => this.setState({ hasError: false })}
+          >
+            重试？
+          </button>
+        </div>
+      )
+    }
+
+    // 如果没有错误，返回子组件
+
+    return this.props.children
+  }
+}
+
+export default ErrorBoundary
+```
+
+`ErrorBoundary` 组件跟踪 `hasError` 状态。这个状态变量的值是布尔值。当 `hasError` 的值为 `true` 时，`ErrorBoundary` 组件将渲染备用 UI。否则，它将渲染子组件。
+
+创建 `ErrorBoundary` 组件后，在 `pages/_app.js` 文件中导入它，以在 Next.js 应用中包装 `Component` 属性。
+
+```jsx
+// 导入 ErrorBoundary 组件
+import ErrorBoundary from '../components/ErrorBoundary'
+
+function MyApp({ Component, pageProps }) {
+  return (
+    // 用 ErrorBoundary 组件包装 Component 属性
+    <ErrorBoundary>
+      <Component {...pageProps} />
+    </ErrorBoundary>
+  )
+}
+
+export default MyApp
+```
+
+你可以在 React 文档中了解更多关于[错误边界](https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary)的信息。
+
+### 错误报告
+
+要监控客户端错误，请使用 [Sentry](https://github.com/vercel/next.js/tree/canary/examples/with-sentry)、Bugsnag 或 Datadog 等服务。

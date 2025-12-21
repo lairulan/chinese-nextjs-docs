@@ -1,0 +1,186 @@
+---
+title: loading.js
+description: loading.js 文件的 API 参考。
+slug: /docs/app/api-reference/file-conventions/loading
+---
+
+特殊文件 `loading.js` 帮助你使用 [React Suspense](https://react.dev/reference/react/Suspense) 创建有意义的加载 UI。通过这个约定，你可以在路由段的内容流式传输时从服务器显示一个[即时加载状态](#instant-loading-states)。新内容会在完成后自动替换。
+
+<Image
+  alt="Loading UI"
+  srcLight="/light/loading-ui.png"
+  srcDark="/dark/loading-ui.png"
+  width="1600"
+  height="691"
+/>
+
+```tsx filename="app/feed/loading.tsx" switcher
+export default function Loading() {
+  // 或者一个自定义的加载骨架屏组件
+  return <p>Loading...</p>
+}
+```
+
+```jsx filename="app/feed/loading.js" switcher
+export default function Loading() {
+  // 或者一个自定义的加载骨架屏组件
+  return <p>Loading...</p>
+}
+```
+
+在 `loading.js` 文件中，你可以添加任何轻量级的加载 UI。你可能会发现使用 [React Developer Tools](https://react.dev/learn/react-developer-tools) 手动切换 Suspense 边界很有帮助。
+
+默认情况下，此文件是一个 [Server Component](/docs/app/getting-started/server-and-client-components)——但也可以通过 `"use client"` 指令用作 Client Component。
+
+## 参考
+
+### 参数
+
+加载 UI 组件不接受任何参数。
+
+## 行为
+
+### 导航
+
+- Fallback UI 会被[预取](/docs/app/getting-started/linking-and-navigating#prefetching)，使导航立即进行，除非预取尚未完成。
+- 导航是可中断的，这意味着切换路由不需要等待路由内容完全加载完成即可导航到另一个路由。
+- 在新路由段加载时，共享布局保持交互性。
+
+### 即时加载状态
+
+即时加载状态是在导航时立即显示的后备 UI。你可以预渲染加载指示器，如骨架屏和旋转器，或未来屏幕的一小部分但有意义的部分，如封面照片、标题等。这有助于用户理解应用正在响应，并提供更好的用户体验。
+
+通过在文件夹内添加 `loading.js` 文件来创建加载状态。
+
+<Image
+  alt="loading.js special file"
+  srcLight="/light/loading-special-file.png"
+  srcDark="/dark/loading-special-file.png"
+  width="1600"
+  height="606"
+/>
+
+```tsx filename="app/dashboard/loading.tsx" switcher
+export default function Loading() {
+  // 你可以在 Loading 中添加任何 UI，包括骨架屏。
+  return <LoadingSkeleton />
+}
+```
+
+```jsx filename="app/dashboard/loading.js" switcher
+export default function Loading() {
+  // 你可以在 Loading 中添加任何 UI，包括骨架屏。
+  return <LoadingSkeleton />
+}
+```
+
+在同一文件夹中，`loading.js` 将嵌套在 `layout.js` 内部。它会自动将 `page.js` 文件及其下面的所有子组件包装在 `<Suspense>` 边界中。
+
+<Image
+  alt="loading.js overview"
+  srcLight="/light/loading-overview.png"
+  srcDark="/dark/loading-overview.png"
+  width="1600"
+  height="768"
+/>
+
+### SEO
+
+- 对于只抓取静态 HTML 且无法像完整浏览器那样执行 JavaScript 的机器人，例如 Twitterbot，Next.js 会在流式传输 UI 之前解析 [`generateMetadata`](/docs/app/api-reference/functions/generate-metadata)，并将元数据放置在初始 HTML 的 `<head>` 中。
+- 否则，可以使用[流式元数据](/docs/app/api-reference/functions/generate-metadata#streaming-metadata)。Next.js 会自动检测用户代理，在阻塞和流式行为之间进行选择。
+- 由于流式传输是服务器渲染的，因此不会影响 SEO。你可以使用 Google 的 [Rich Results Test](https://search.google.com/test/rich-results) 工具查看你的页面在 Google 网络爬虫中的显示方式，并查看序列化的 HTML（[来源](https://web.dev/rendering-on-the-web/#seo-considerations)）。
+
+### 状态码
+
+在流式传输时，将返回 `200` 状态码以表示请求成功。
+
+服务器仍然可以在流式内容本身内向客户端传达错误或问题，例如，在使用 [`redirect`](/docs/app/api-reference/functions/redirect) 或 [`notFound`](/docs/app/api-reference/functions/not-found) 时。由于响应头已经发送到客户端，因此无法更新响应的状态码。
+
+例如，当 404 页面流式传输到客户端时，Next.js 会在流式 HTML 中包含 `<meta name="robots" content="noindex">` 标签。这可以防止搜索引擎索引该 URL，即使 HTTP 状态是 200。请参阅 Google 关于 [`robots` meta 标签](https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag)的指南。
+
+某些爬虫可能会将这些响应标记为"软 404"。在流式传输的情况下，这不会导致索引，因为页面在 HTML 中明确标记为 `noindex`。
+
+如果你需要 404 状态码以满足合规性或分析需求，请确保在响应主体流式传输之前资源已存在，以便服务器可以设置 HTTP 状态码。
+
+你可以在 [`proxy`](/docs/app/api-reference/file-conventions/proxy) 中运行此检查，将缺失的 slug 重写到 not-found 路由，或[生成 404 响应](/docs/app/api-reference/file-conventions/proxy#producing-a-response)。保持 proxy 检查快速，避免在那里获取完整内容。
+
+<details>
+<summary>响应主体何时开始流式传输？</summary>
+
+当 Suspense 后备渲染时（例如，`loading.tsx`）或当 Server Component 在 `Suspense` 边界下挂起时，响应主体开始流式传输。将 `notFound()` 放置在这些边界之前，以及任何可能挂起的 `await` 之前。
+
+要开始流式传输，必须设置响应头。这就是为什么在流式传输开始后无法更改状态码的原因。
+
+</details>
+
+### 浏览器限制
+
+[某些浏览器](https://bugs.webkit.org/show_bug.cgi?id=252413)会缓冲流式响应。在响应超过 1024 字节之前，你可能看不到流式响应。这通常只影响"hello world"应用，而不是真实应用。
+
+## 平台支持
+
+| 部署选项                                                   | 支持         |
+| ------------------------------------------------------------------- | ----------------- |
+| [Node.js server](/docs/app/getting-started/deploying#nodejs-server) | 是               |
+| [Docker container](/docs/app/getting-started/deploying#docker)      | 是               |
+| [Static export](/docs/app/getting-started/deploying#static-export)  | 否                |
+| [Adapters](/docs/app/getting-started/deploying#adapters)            | 取决于平台 |
+
+了解如何在自托管 Next.js 时[配置流式传输](/docs/app/guides/self-hosting#streaming-and-suspense)。
+
+## 示例
+
+### 使用 Suspense 进行流式传输
+
+除了 `loading.js`，你还可以为自己的 UI 组件手动创建 Suspense 边界。App Router 支持使用 [Suspense](https://react.dev/reference/react/Suspense) 进行流式传输。
+
+`<Suspense>` 通过包装一个执行异步操作的组件（例如获取数据），在操作进行时显示后备 UI（例如骨架屏、旋转器），然后在操作完成后替换为你的组件来工作。
+
+```tsx filename="app/dashboard/page.tsx" switcher
+import { Suspense } from 'react'
+import { PostFeed, Weather } from './Components'
+
+export default function Posts() {
+  return (
+    <section>
+      <Suspense fallback={<p>Loading feed...</p>}>
+        <PostFeed />
+      </Suspense>
+      <Suspense fallback={<p>Loading weather...</p>}>
+        <Weather />
+      </Suspense>
+    </section>
+  )
+}
+```
+
+```jsx filename="app/dashboard/page.js" switcher
+import { Suspense } from 'react'
+import { PostFeed, Weather } from './Components'
+
+export default function Posts() {
+  return (
+    <section>
+      <Suspense fallback={<p>Loading feed...</p>}>
+        <PostFeed />
+      </Suspense>
+      <Suspense fallback={<p>Loading weather...</p>}>
+        <Weather />
+      </Suspense>
+    </section>
+  )
+}
+```
+
+通过使用 Suspense，你可以获得以下好处：
+
+1. **Streaming Server Rendering** - 从服务器到客户端逐步渲染 HTML。
+2. **Selective Hydration** - React 根据用户交互优先选择首先使哪些组件具有交互性。
+
+有关更多 Suspense 示例和用例，请参阅 [React 文档](https://react.dev/reference/react/Suspense)。
+
+## 版本历史
+
+| 版本   | 变更               |
+| --------- | --------------------- |
+| `v13.0.0` | 引入 `loading`。 |

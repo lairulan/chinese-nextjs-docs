@@ -1,0 +1,223 @@
+---
+title: redirect
+description: redirect 函数的 API 参考。
+related:
+  links:
+    - app/api-reference/functions/permanentRedirect
+slug: /docs/app/api-reference/functions/redirect
+---
+
+`redirect` 函数允许你将用户重定向到另一个 URL。`redirect` 可以在 [Server 和 Client Components](/docs/app/getting-started/server-and-client-components)、[Route Handlers](/docs/app/api-reference/file-conventions/route) 和 [Server Actions](/docs/app/getting-started/updating-data) 中渲染时使用。
+
+当在[流式上下文](/docs/app/getting-started/linking-and-navigating#streaming)中使用时，这将插入一个 meta 标签以在客户端触发重定向。当在 server action 中使用时，它将向调用者提供 303 HTTP 重定向响应。否则，它将向调用者提供 307 HTTP 重定向响应。
+
+如果资源不存在，你可以使用 [`notFound` 函数](/docs/app/api-reference/functions/not-found)代替。
+
+## 参考
+
+### 参数
+
+`redirect` 函数接受两个参数：
+
+```js
+redirect(path, type)
+```
+
+| 参数      | 类型                                                          | 描述                                       |
+| --------- | ------------------------------------------------------------- | ------------------------------------------ |
+| `path`    | `string`                                                      | 要重定向到的 URL。可以是相对路径或绝对路径。 |
+| `type`    | `'replace'`（默认）或 `'push'`（Server Actions 中的默认值）    | 要执行的重定向类型。                        |
+
+默认情况下，`redirect` 在 [Server Actions](/docs/app/getting-started/updating-data) 中将使用 `push`（向浏览器历史记录堆栈添加新条目），在其他地方使用 `replace`（替换浏览器历史记录堆栈中的当前 URL）。你可以通过指定 `type` 参数来覆盖此行为。
+
+`RedirectType` 对象包含 `type` 参数的可用选项。
+
+```ts
+import { redirect, RedirectType } from 'next/navigation'
+
+redirect('/redirect-to', RedirectType.replace)
+// 或
+redirect('/redirect-to', RedirectType.push)
+```
+
+`type` 参数在 Server Components 中使用时无效。
+
+### 返回值
+
+`redirect` 不返回任何值。
+
+## 行为
+
+- 在 Server Actions 和 Route Handlers 中，当使用 `try/catch` 语句时，应在 `try` 块**之外**调用 redirect。
+- 如果你希望返回 308（永久）HTTP 重定向而不是 307（临时），可以使用 [`permanentRedirect` 函数](/docs/app/api-reference/functions/permanentRedirect)代替。
+- `redirect` 会抛出错误，因此在使用 `try/catch` 语句时应在 `try` 块**之外**调用。
+- `redirect` 可以在 Client Components 的渲染过程中调用，但不能在事件处理程序中调用。你可以使用 [`useRouter` hook](/docs/app/api-reference/functions/use-router) 代替。
+- `redirect` 也接受绝对 URL，可用于重定向到外部链接。
+- 如果你想在渲染过程之前重定向，请使用 [`next.config.js`](/docs/app/guides/redirecting#redirects-in-nextconfigjs) 或 [Proxy](/docs/app/guides/redirecting#nextresponseredirect-in-proxy)。
+
+## 示例
+
+### Server Component
+
+调用 `redirect()` 函数会抛出 `NEXT_REDIRECT` 错误，并终止抛出该错误的路由段的渲染。
+
+```tsx filename="app/team/[id]/page.tsx" switcher
+import { redirect } from 'next/navigation'
+
+async function fetchTeam(id: string) {
+  const res = await fetch('https://...')
+  if (!res.ok) return undefined
+  return res.json()
+}
+
+export default async function Profile({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  const team = await fetchTeam(id)
+
+  if (!team) {
+    redirect('/login')
+  }
+
+  // ...
+}
+```
+
+```jsx filename="app/team/[id]/page.js" switcher
+import { redirect } from 'next/navigation'
+
+async function fetchTeam(id) {
+  const res = await fetch('https://...')
+  if (!res.ok) return undefined
+  return res.json()
+}
+
+export default async function Profile({ params }) {
+  const { id } = await params
+  const team = await fetchTeam(id)
+
+  if (!team) {
+    redirect('/login')
+  }
+
+  // ...
+}
+```
+
+> **值得注意的是**：`redirect` 不要求你使用 `return redirect()`，因为它使用了 TypeScript 的 [`never`](https://www.typescriptlang.org/docs/handbook/2/functions.html#never) 类型。
+
+### Client Component
+
+`redirect` 可以直接在 Client Component 中使用。
+
+```tsx filename="components/client-redirect.tsx" switcher
+'use client'
+
+import { redirect, usePathname } from 'next/navigation'
+
+export function ClientRedirect() {
+  const pathname = usePathname()
+
+  if (pathname.startsWith('/admin') && !pathname.includes('/login')) {
+    redirect('/admin/login')
+  }
+
+  return <div>Login Page</div>
+}
+```
+
+```jsx filename="components/client-redirect.jsx" switcher
+'use client'
+
+import { redirect, usePathname } from 'next/navigation'
+
+export function ClientRedirect() {
+  const pathname = usePathname()
+
+  if (pathname.startsWith('/admin') && !pathname.includes('/login')) {
+    redirect('/admin/login')
+  }
+
+  return <div>Login Page</div>
+}
+```
+
+> **值得注意的是**：在 Client Component 中在初始页面加载期间的服务器端渲染（SSR）时使用 `redirect`，它将执行服务器端重定向。
+
+`redirect` 可以通过 Server Action 在 Client Component 中使用。如果你需要使用事件处理程序来重定向用户，可以使用 [`useRouter`](/docs/app/api-reference/functions/use-router) hook。
+
+```tsx filename="app/client-redirect.tsx" switcher
+'use client'
+
+import { navigate } from './actions'
+
+export function ClientRedirect() {
+  return (
+    <form action={navigate}>
+      <input type="text" name="id" />
+      <button>Submit</button>
+    </form>
+  )
+}
+```
+
+```jsx filename="app/client-redirect.jsx" switcher
+'use client'
+
+import { navigate } from './actions'
+
+export function ClientRedirect() {
+  return (
+    <form action={navigate}>
+      <input type="text" name="id" />
+      <button>Submit</button>
+    </form>
+  )
+}
+```
+
+```ts filename="app/actions.ts" switcher
+'use server'
+
+import { redirect } from 'next/navigation'
+
+export async function navigate(data: FormData) {
+  redirect(`/posts/${data.get('id')}`)
+}
+```
+
+```js filename="app/actions.js" switcher
+'use server'
+
+import { redirect } from 'next/navigation'
+
+export async function navigate(data) {
+  redirect(`/posts/${data.get('id')}`)
+}
+```
+
+## 常见问题
+
+### 为什么 `redirect` 使用 307 和 308？
+
+当使用 `redirect()` 时，你可能会注意到使用的状态码是 `307` 表示临时重定向，`308` 表示永久重定向。虽然传统上 `302` 用于临时重定向，`301` 用于永久重定向，但许多浏览器在使用 `302` 时会更改重定向的请求方法，从 `POST` 变为 `GET` 请求，而不管原始请求方法如何。
+
+以从 `/users` 重定向到 `/people` 的以下示例为例，如果你向 `/users` 发出 `POST` 请求以创建新用户，并遵循 `302` 临时重定向，请求方法将从 `POST` 更改为 `GET` 请求。这没有意义，因为要创建新用户，你应该向 `/people` 发出 `POST` 请求，而不是 `GET` 请求。
+
+引入 `307` 状态码意味着请求方法被保留为 `POST`。
+
+- `302` - 临时重定向，会将请求方法从 `POST` 更改为 `GET`
+- `307` - 临时重定向，会将请求方法保留为 `POST`
+
+`redirect()` 方法默认使用 `307`，而不是 `302` 临时重定向，这意味着你的请求将*始终*被保留为 `POST` 请求。
+
+[了解更多](https://developer.mozilla.org/docs/Web/HTTP/Redirections)关于 HTTP 重定向的信息。
+
+## 版本历史
+
+| 版本      | 变更                 |
+| --------- | -------------------- |
+| `v13.0.0` | 引入 `redirect`。    |

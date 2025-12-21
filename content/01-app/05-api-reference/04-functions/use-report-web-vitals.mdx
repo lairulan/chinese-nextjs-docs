@@ -1,0 +1,245 @@
+---
+title: useReportWebVitals
+description: useReportWebVitals 函数的 API 参考。
+slug: /docs/app/api-reference/functions/use-report-web-vitals
+---
+
+{/* 此文档的内容在 app 和 pages 路由之间共享。你可以使用 `<PagesOnly>Content</PagesOnly>` 组件来添加特定于 Pages Router 的内容。任何共享内容都不应包装在组件中。*/}
+
+`useReportWebVitals` hook 允许你报告 [Core Web Vitals](https://web.dev/vitals/)，并且可以与你的分析服务结合使用。
+
+传递给 `useReportWebVitals` 的新函数会被调用并接收到该时间点的可用指标。为了防止报告重复数据，请确保回调函数引用不会改变（如下面的代码示例所示）。
+
+<PagesOnly>
+
+```jsx filename="pages/_app.js"
+import { useReportWebVitals } from 'next/web-vitals'
+
+const logWebVitals = (metric) => {
+  console.log(metric)
+}
+
+function MyApp({ Component, pageProps }) {
+  useReportWebVitals(logWebVitals)
+
+  return <Component {...pageProps} />
+}
+```
+
+</PagesOnly>
+
+<AppOnly>
+
+```jsx filename="app/_components/web-vitals.js"
+'use client'
+
+import { useReportWebVitals } from 'next/web-vitals'
+
+const logWebVitals = (metric) => {
+  console.log(metric)
+}
+
+export function WebVitals() {
+  useReportWebVitals(logWebVitals)
+
+  return null
+}
+```
+
+```jsx filename="app/layout.js"
+import { WebVitals } from './_components/web-vitals'
+
+export default function Layout({ children }) {
+  return (
+    <html>
+      <body>
+        <WebVitals />
+        {children}
+      </body>
+    </html>
+  )
+}
+```
+
+> 由于 `useReportWebVitals` hook 需要 `'use client'` 指令，最高效的方法是创建一个单独的组件供根布局导入。这样可以将客户端边界专门限制在 `WebVitals` 组件中。
+
+</AppOnly>
+
+## useReportWebVitals
+
+作为 hook 参数传递的 `metric` 对象由以下几个属性组成：
+
+- `id`：当前页面加载上下文中指标的唯一标识符
+- `name`：性能指标的名称。可能的值包括特定于 Web 应用程序的 [Web Vitals](#web-vitals) 指标名称（TTFB、FCP、LCP、FID、CLS）。
+- `delta`：指标当前值与先前值之间的差异。该值通常以毫秒为单位，表示指标值随时间的变化。
+- `entries`：与指标相关联的 [Performance Entries](https://developer.mozilla.org/docs/Web/API/PerformanceEntry) 数组。这些条目提供了与指标相关的性能事件的详细信息。
+- `navigationType`：指示触发指标收集的[导航类型](https://developer.mozilla.org/docs/Web/API/PerformanceNavigationTiming/type)。可能的值包括 `"navigate"`、`"reload"`、`"back_forward"` 和 `"prerender"`。
+- `rating`：指标值的定性评级，提供性能评估。可能的值为 `"good"`、`"needs-improvement"` 和 `"poor"`。评级通常是通过将指标值与表示可接受或次优性能的预定义阈值进行比较来确定的。
+- `value`：性能条目的实际值或持续时间，通常以毫秒为单位。该值提供了对指标正在跟踪的性能方面的定量测量。值的来源取决于所测量的特定指标，可以来自各种 [Performance API](https://developer.mozilla.org/docs/Web/API/Performance_API)。
+
+## Web Vitals
+
+[Web Vitals](https://web.dev/vitals/) 是一组有用的指标，旨在捕获网页的用户体验。以下 Web Vitals 全部包含在内：
+
+- [Time to First Byte](https://developer.mozilla.org/docs/Glossary/Time_to_first_byte) (TTFB)
+- [First Contentful Paint](https://developer.mozilla.org/docs/Glossary/First_contentful_paint) (FCP)
+- [Largest Contentful Paint](https://web.dev/lcp/) (LCP)
+- [First Input Delay](https://web.dev/fid/) (FID)
+- [Cumulative Layout Shift](https://web.dev/cls/) (CLS)
+- [Interaction to Next Paint](https://web.dev/inp/) (INP)
+
+你可以使用 `name` 属性处理所有这些指标的结果。
+
+<PagesOnly>
+
+```jsx filename="pages/_app.js"
+import { useReportWebVitals } from 'next/web-vitals'
+
+const handleWebVitals = (metric) => {
+  switch (metric.name) {
+    case 'FCP': {
+      // 处理 FCP 结果
+    }
+    case 'LCP': {
+      // 处理 LCP 结果
+    }
+    // ...
+  }
+}
+
+function MyApp({ Component, pageProps }) {
+  useReportWebVitals(handleWebVitals)
+
+  return <Component {...pageProps} />
+}
+```
+
+</PagesOnly>
+
+<AppOnly>
+
+```tsx filename="app/components/web-vitals.tsx" switcher
+'use client'
+
+import { useReportWebVitals } from 'next/web-vitals'
+
+type ReportWebVitalsCallback = Parameters<typeof useReportWebVitals>[0]
+
+const handleWebVitals: ReportWebVitalsCallback = (metric) => {
+  switch (metric.name) {
+    case 'FCP': {
+      // 处理 FCP 结果
+    }
+    case 'LCP': {
+      // 处理 LCP 结果
+    }
+    // ...
+  }
+}
+
+export function WebVitals() {
+  useReportWebVitals(handleWebVitals)
+}
+```
+
+```jsx filename="app/components/web-vitals.js" switcher
+'use client'
+
+import { useReportWebVitals } from 'next/web-vitals'
+
+const handleWebVitals = (metric) => {
+  switch (metric.name) {
+    case 'FCP': {
+      // 处理 FCP 结果
+    }
+    case 'LCP': {
+      // 处理 LCP 结果
+    }
+    // ...
+  }
+}
+
+export function WebVitals() {
+  useReportWebVitals(handleWebVitals)
+}
+```
+
+</AppOnly>
+
+<PagesOnly>
+
+## 自定义指标
+
+除了上面列出的核心指标之外，还有一些额外的自定义指标用于测量页面水合和渲染所需的时间：
+
+- `Next.js-hydration`：页面开始和完成水合所需的时间长度（以毫秒为单位）
+- `Next.js-route-change-to-render`：路由更改后页面开始渲染所需的时间长度（以毫秒为单位）
+- `Next.js-render`：路由更改后页面完成渲染所需的时间长度（以毫秒为单位）
+
+你可以分别处理所有这些指标的结果：
+
+```jsx filename="pages/_app.js"
+import { useReportWebVitals } from 'next/web-vitals'
+
+function handleCustomMetrics(metrics) {
+  switch (metric.name) {
+    case 'Next.js-hydration':
+      // 处理水合结果
+      break
+    case 'Next.js-route-change-to-render':
+      // 处理路由更改到渲染的结果
+      break
+    case 'Next.js-render':
+      // 处理渲染结果
+      break
+    default:
+      break
+  }
+}
+
+function MyApp({ Component, pageProps }) {
+  useReportWebVitals(handleCustomMetrics)
+
+  return <Component {...pageProps} />
+}
+```
+
+这些指标在所有支持 [User Timing API](https://caniuse.com/#feat=user-timing) 的浏览器中都可以工作。
+
+</PagesOnly>
+
+## 将结果发送到外部系统
+
+你可以将结果发送到任何端点，以测量和跟踪你网站上的真实用户性能。例如：
+
+```js
+function postWebVitals(metrics) {
+  const body = JSON.stringify(metric)
+  const url = 'https://example.com/analytics'
+
+  // 如果可用，使用 `navigator.sendBeacon()`，否则回退到 `fetch()`。
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon(url, body)
+  } else {
+    fetch(url, { body, method: 'POST', keepalive: true })
+  }
+}
+
+useReportWebVitals(postWebVitals)
+```
+
+> **值得注意的是**：如果你使用 [Google Analytics](https://analytics.google.com/analytics/web/)，使用 `id` 值可以让你手动构建指标分布（以计算百分位数等）。
+
+> ```js
+> useReportWebVitals(metric => {
+>   // 如果你按照此示例初始化了 Google Analytics，请使用 `window.gtag`：
+>   // https://github.com/vercel/next.js/blob/canary/examples/with-google-analytics
+>   window.gtag('event', metric.name, {
+>     value: Math.round(metric.name === 'CLS' ? metric.value * 1000 : metric.value), // 值必须是整数
+>     event_label: metric.id, // 当前页面加载的唯一 ID
+>     non_interaction: true, // 避免影响跳出率。
+>   });
+> }
+> ```
+>
+> 阅读更多关于[将结果发送到 Google Analytics](https://github.com/GoogleChrome/web-vitals#send-the-results-to-google-analytics) 的信息。

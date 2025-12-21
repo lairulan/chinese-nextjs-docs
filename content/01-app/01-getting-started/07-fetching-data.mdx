@@ -1,0 +1,663 @@
+---
+title: 获取数据
+description: 学习如何获取数据以及流式传输依赖于数据的内容。
+related:
+  title: API Reference
+  description: 通过阅读 API 参考了解更多本页面中提到的功能。
+  links:
+    - app/guides/data-security
+    - app/api-reference/functions/fetch
+    - app/api-reference/file-conventions/loading
+    - app/api-reference/config/next-config-js/logging
+    - app/api-reference/config/next-config-js/taint
+slug: /docs/app/getting-started/fetching-data
+---
+
+本页面将引导你了解如何在 [Server 和 Client Components](/docs/app/getting-started/server-and-client-components) 中获取数据，以及如何[流式传输](#streaming)依赖于数据的组件。
+
+## 获取数据
+
+### Server Components
+
+你可以在 Server Components 中使用以下方式获取数据：
+
+1. [`fetch` API](#with-the-fetch-api)
+2. [ORM 或数据库](#with-an-orm-or-database)
+
+#### 使用 `fetch` API
+
+要使用 `fetch` API 获取数据，将你的组件转换为异步函数，并 await `fetch` 调用。例如：
+
+```tsx filename="app/blog/page.tsx" switcher
+export default async function Page() {
+  const data = await fetch('https://api.vercel.app/blog')
+  const posts = await data.json()
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+```jsx filename="app/blog/page.js" switcher
+export default async function Page() {
+  const data = await fetch('https://api.vercel.app/blog')
+  const posts = await data.json()
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+> **值得注意的是**：
+>
+> - 默认情况下，`fetch` 响应不会被缓存。然而，Next.js 会[预渲染](/docs/app/guides/caching#static-rendering)路由，输出将被缓存以提高性能。如果你想选择进入[动态渲染](/docs/app/guides/caching#dynamic-rendering)，使用 `{ cache: 'no-store' }` 选项。参见 [`fetch` API 参考](/docs/app/api-reference/functions/fetch)。
+> - 在开发过程中，你可以记录 `fetch` 调用以获得更好的可见性和调试。参见 [`logging` API 参考](/docs/app/api-reference/config/next-config-js/logging)。
+
+#### 使用 ORM 或数据库
+
+由于 Server Components 在服务器上渲染，你可以安全地使用 ORM 或数据库客户端进行数据库查询。将你的组件转换为异步函数，并 await 调用：
+
+```tsx filename="app/blog/page.tsx" switcher
+import { db, posts } from '@/lib/db'
+
+export default async function Page() {
+  const allPosts = await db.select().from(posts)
+  return (
+    <ul>
+      {allPosts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+```jsx filename="app/blog/page.js" switcher
+import { db, posts } from '@/lib/db'
+
+export default async function Page() {
+  const allPosts = await db.select().from(posts)
+  return (
+    <ul>
+      {allPosts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+### Client Components
+
+有两种方式在 Client Components 中获取数据，使用：
+
+1. React 的 [`use` hook](https://react.dev/reference/react/use)
+2. 社区库，如 [SWR](https://swr.vercel.app/) 或 [React Query](https://tanstack.com/query/latest)
+
+#### 使用 `use` hook 流式传输数据
+
+你可以使用 React 的 [`use` hook](https://react.dev/reference/react/use) 从服务器到客户端[流式传输](#streaming)数据。首先在 Server 组件中获取数据，并将 promise 作为 prop 传递给 Client Component：
+
+```tsx filename="app/blog/page.tsx" switcher
+import Posts from '@/app/ui/posts'
+import { Suspense } from 'react'
+
+export default function Page() {
+  // 不要 await 数据获取函数
+  const posts = getPosts()
+
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <Posts posts={posts} />
+    </Suspense>
+  )
+}
+```
+
+```jsx filename="app/blog/page.js" switcher
+import Posts from '@/app/ui/posts'
+import { Suspense } from 'react'
+
+export default function Page() {
+  // 不要 await 数据获取函数
+  const posts = getPosts()
+
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <Posts posts={posts} />
+    </Suspense>
+  )
+}
+```
+
+然后，在你的 Client Component 中，使用 `use` hook 读取 promise：
+
+```tsx filename="app/ui/posts.tsx" switcher
+'use client'
+import { use } from 'react'
+
+export default function Posts({
+  posts,
+}: {
+  posts: Promise<{ id: string; title: string }[]>
+}) {
+  const allPosts = use(posts)
+
+  return (
+    <ul>
+      {allPosts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+```jsx filename="app/ui/posts.js" switcher
+'use client'
+import { use } from 'react'
+
+export default function Posts({ posts }) {
+  const allPosts = use(posts)
+
+  return (
+    <ul>
+      {allPosts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+在上面的示例中，`<Posts>` 组件被包裹在 [`<Suspense>` 边界](https://react.dev/reference/react/Suspense)中。这意味着在 promise 解析时将显示后备内容。了解更多关于[流式传输](#streaming)的信息。
+
+#### 社区库
+
+你可以使用社区库，如 [SWR](https://swr.vercel.app/) 或 [React Query](https://tanstack.com/query/latest) 在 Client Components 中获取数据。这些库具有自己的缓存、流式传输和其他功能的语义。例如，使用 SWR：
+
+```tsx filename="app/blog/page.tsx" switcher
+'use client'
+import useSWR from 'swr'
+
+const fetcher = (url) => fetch(url).then((r) => r.json())
+
+export default function BlogPage() {
+  const { data, error, isLoading } = useSWR(
+    'https://api.vercel.app/blog',
+    fetcher
+  )
+
+  if (isLoading) return <div>Loading...</div>
+  if (error) return <div>Error: {error.message}</div>
+
+  return (
+    <ul>
+      {data.map((post: { id: string; title: string }) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+```jsx filename="app/blog/page.js" switcher
+'use client'
+
+import useSWR from 'swr'
+
+const fetcher = (url) => fetch(url).then((r) => r.json())
+
+export default function BlogPage() {
+  const { data, error, isLoading } = useSWR(
+    'https://api.vercel.app/blog',
+    fetcher
+  )
+
+  if (isLoading) return <div>Loading...</div>
+  if (error) return <div>Error: {error.message}</div>
+
+  return (
+    <ul>
+      {data.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+## 去重请求和缓存数据
+
+去重 `fetch` 请求的一种方法是使用[请求记忆化](/docs/app/guides/caching#request-memoization)。通过这种机制，在单个渲染过程中使用相同 URL 和选项的 `GET` 或 `HEAD` 的 `fetch` 调用会被合并为一个请求。这是自动发生的，你可以通过向 `fetch` 传递 Abort 信号来[选择退出](/docs/app/guides/caching#opting-out)。
+
+请求记忆化的作用域限定在请求的生命周期内。
+
+你也可以通过使用 Next.js 的 [Data Cache](/docs/app/guides/caching#data-cache) 去重 `fetch` 请求，例如在你的 `fetch` 选项中设置 `cache: 'force-cache'`。
+
+Data Cache 允许在当前渲染过程和传入请求之间共享数据。
+
+如果你*没有*使用 `fetch`，而是直接使用 ORM 或数据库，你可以使用 [React `cache`](https://react.dev/reference/react/cache) 函数包装你的数据访问。
+
+```tsx filename="app/lib/data.ts" switcher
+import { cache } from 'react'
+import { db, posts, eq } from '@/lib/db'
+
+export const getPost = cache(async (id: string) => {
+  const post = await db.query.posts.findFirst({
+    where: eq(posts.id, parseInt(id)),
+  })
+})
+```
+
+```jsx filename="app/lib/data.js" switcher
+import { cache } from 'react'
+import { db, posts, eq } from '@/lib/db'
+import { notFound } from 'next/navigation'
+
+export const getPost = cache(async (id) => {
+  const post = await db.query.posts.findFirst({
+    where: eq(posts.id, parseInt(id)),
+  })
+})
+```
+
+## 流式传输
+
+> **警告**：以下内容假设你的应用程序中启用了 [`cacheComponents` 配置选项](/docs/app/api-reference/config/next-config-js/cacheComponents)。该标志在 Next.js 15 canary 中引入。
+
+当你在 Server Components 中获取数据时，数据会在服务器上为每个请求获取和渲染。如果你有任何慢速数据请求，整个路由将被阻止渲染，直到所有数据都被获取。
+
+为了改善初始加载时间和用户体验，你可以使用流式传输将页面的 HTML 分解为更小的块，并逐步将这些块从服务器发送到客户端。
+
+<Image
+  alt="How Server Rendering with Streaming Works"
+  srcLight="/light/server-rendering-with-streaming.png"
+  srcDark="/dark/server-rendering-with-streaming.png"
+  width="1600"
+  height="785"
+/>
+
+有两种方式可以在你的应用程序中实现流式传输：
+
+1. 使用 [`loading.js` 文件](#with-loadingjs)包裹页面
+2. 使用 [`<Suspense>`](#with-suspense) 包裹组件
+
+### 使用 `loading.js`
+
+你可以在与页面相同的文件夹中创建一个 `loading.js` 文件，以在获取数据时流式传输**整个页面**。例如，要流式传输 `app/blog/page.js`，请在 `app/blog` 文件夹内添加该文件。
+
+<Image
+  alt="Blog folder structure with loading.js file"
+  srcLight="/light/loading-file.png"
+  srcDark="/dark/loading-file.png"
+  width="1600"
+  height="525"
+/>
+
+```tsx filename="app/blog/loading.tsx" switcher
+export default function Loading() {
+  // 在这里定义加载 UI
+  return <div>Loading...</div>
+}
+```
+
+```jsx filename="app/blog/loading.js" switcher
+export default function Loading() {
+  // 在这里定义加载 UI
+  return <div>Loading...</div>
+}
+```
+
+在导航时，用户将立即看到布局和[加载状态](#creating-meaningful-loading-states)，同时页面正在渲染。一旦渲染完成，新内容将自动替换。
+
+<Image
+  alt="Loading UI"
+  srcLight="/light/loading-ui.png"
+  srcDark="/dark/loading-ui.png"
+  width="1600"
+  height="691"
+/>
+
+在后台，`loading.js` 将嵌套在 `layout.js` 内部，并将自动将 `page.js` 文件和下面的任何子元素包裹在 `<Suspense>` 边界中。
+
+<Image
+  alt="loading.js overview"
+  srcLight="/light/loading-overview.png"
+  srcDark="/dark/loading-overview.png"
+  width="1600"
+  height="768"
+/>
+
+这种方法适用于路由段（布局和页面），但对于更细粒度的流式传输，你可以使用 `<Suspense>`。
+
+### 使用 `<Suspense>`
+
+`<Suspense>` 允许你更精细地控制页面的哪些部分进行流式传输。例如，你可以立即显示 `<Suspense>` 边界之外的任何页面内容，并在边界内流式传输博客文章列表。
+
+```tsx filename="app/blog/page.tsx" switcher
+import { Suspense } from 'react'
+import BlogList from '@/components/BlogList'
+import BlogListSkeleton from '@/components/BlogListSkeleton'
+
+export default function BlogPage() {
+  return (
+    <div>
+      {/* 此内容将立即发送到客户端 */}
+      <header>
+        <h1>Welcome to the Blog</h1>
+        <p>Read the latest posts below.</p>
+      </header>
+      <main>
+        {/* 任何包裹在 <Suspense> 边界中的内容都将被流式传输 */}
+        <Suspense fallback={<BlogListSkeleton />}>
+          <BlogList />
+        </Suspense>
+      </main>
+    </div>
+  )
+}
+```
+
+```jsx filename="app/blog/page.js" switcher
+import { Suspense } from 'react'
+import BlogList from '@/components/BlogList'
+import BlogListSkeleton from '@/components/BlogListSkeleton'
+
+export default function BlogPage() {
+  return (
+    <div>
+      {/* 此内容将立即发送到客户端 */}
+      <header>
+        <h1>Welcome to the Blog</h1>
+        <p>Read the latest posts below.</p>
+      </header>
+      <main>
+        {/* 任何包裹在 <Suspense> 边界中的内容都将被流式传输 */}
+        <Suspense fallback={<BlogListSkeleton />}>
+          <BlogList />
+        </Suspense>
+      </main>
+    </div>
+  )
+}
+```
+
+### 创建有意义的加载状态
+
+即时加载状态是在导航后立即向用户显示的后备 UI。为了获得最佳用户体验，我们建议设计有意义的加载状态，帮助用户了解应用正在响应。例如，你可以使用骨架屏和加载动画，或者未来屏幕的一小部分但有意义的部分，如封面照片、标题等。
+
+在开发过程中，你可以使用 [React Devtools](https://react.dev/learn/react-developer-tools) 预览和检查组件的加载状态。
+
+## 示例
+
+### 顺序数据获取
+
+当树中的嵌套组件各自获取自己的数据且请求未被[去重](/docs/app/guides/caching#request-memoization)时，会发生顺序数据获取，导致响应时间更长。
+
+<Image
+  alt="Sequential and Parallel Data Fetching"
+  srcLight="/light/sequential-parallel-data-fetching.png"
+  srcDark="/dark/sequential-parallel-data-fetching.png"
+  width="1600"
+  height="525"
+/>
+
+在某些情况下，你可能希望使用这种模式，因为一个获取依赖于另一个的结果。
+
+例如，`<Playlists>` 组件只有在 `<Artist>` 组件完成数据获取后才会开始获取数据，因为 `<Playlists>` 依赖于 `artistID` prop：
+
+```tsx filename="app/artist/[username]/page.tsx" switcher
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ username: string }>
+}) {
+  const { username } = await params
+  // 获取艺术家信息
+  const artist = await getArtist(username)
+
+  return (
+    <>
+      <h1>{artist.name}</h1>
+      {/* 在 Playlists 组件加载时显示后备 UI */}
+      <Suspense fallback={<div>Loading...</div>}>
+        {/* 将艺术家 ID 传递给 Playlists 组件 */}
+        <Playlists artistID={artist.id} />
+      </Suspense>
+    </>
+  )
+}
+
+async function Playlists({ artistID }: { artistID: string }) {
+  // 使用艺术家 ID 获取播放列表
+  const playlists = await getArtistPlaylists(artistID)
+
+  return (
+    <ul>
+      {playlists.map((playlist) => (
+        <li key={playlist.id}>{playlist.name}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+```jsx filename="app/artist/[username]/page.js" switcher
+export default async function Page({ params }) {
+  const { username } = await params
+  // 获取艺术家信息
+  const artist = await getArtist(username)
+
+  return (
+    <>
+      <h1>{artist.name}</h1>
+      {/* 在 Playlists 组件加载时显示后备 UI */}
+      <Suspense fallback={<div>Loading...</div>}>
+        {/* 将艺术家 ID 传递给 Playlists 组件 */}
+        <Playlists artistID={artist.id} />
+      </Suspense>
+    </>
+  )
+}
+
+async function Playlists({ artistID }) {
+  // 使用艺术家 ID 获取播放列表
+  const playlists = await getArtistPlaylists(artistID)
+
+  return (
+    <ul>
+      {playlists.map((playlist) => (
+        <li key={playlist.id}>{playlist.name}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+为了改善用户体验，你应该使用 [React `<Suspense>`](/docs/app/getting-started/linking-and-navigating#streaming) 在获取数据时显示 `fallback`。这将启用[流式传输](#streaming)并防止整个路由被顺序数据请求阻止。
+
+### 并行数据获取
+
+当路由中的数据请求被急切地启动并同时开始时，会发生并行数据获取。
+
+默认情况下，[布局和页面](/docs/app/getting-started/layouts-and-pages)是并行渲染的。因此每个段都会尽快开始获取数据。
+
+然而，在*任何*组件内，如果多个 `async`/`await` 请求放置在其他请求之后，仍然可能是顺序的。例如，`getAlbums` 将被阻止，直到 `getArtist` 解析：
+
+```tsx filename="app/artist/[username]/page.tsx" switcher
+import { getArtist, getAlbums } from '@/app/lib/data'
+
+export default async function Page({ params }) {
+  // 这些请求将是顺序的
+  const { username } = await params
+  const artist = await getArtist(username)
+  const albums = await getAlbums(username)
+  return <div>{artist.name}</div>
+}
+```
+
+通过调用 `fetch` 启动多个请求，然后使用 [`Promise.all`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/all) await 它们。请求在调用 `fetch` 时立即开始。
+
+```tsx filename="app/artist/[username]/page.tsx" highlight={3,8,23} switcher
+import Albums from './albums'
+
+async function getArtist(username: string) {
+  const res = await fetch(`https://api.example.com/artist/${username}`)
+  return res.json()
+}
+
+async function getAlbums(username: string) {
+  const res = await fetch(`https://api.example.com/artist/${username}/albums`)
+  return res.json()
+}
+
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ username: string }>
+}) {
+  const { username } = await params
+
+  // 启动请求
+  const artistData = getArtist(username)
+  const albumsData = getAlbums(username)
+
+  const [artist, albums] = await Promise.all([artistData, albumsData])
+
+  return (
+    <>
+      <h1>{artist.name}</h1>
+      <Albums list={albums} />
+    </>
+  )
+}
+```
+
+```jsx filename="app/artist/[username]/page.js" highlight={3,8,19} switcher
+import Albums from './albums'
+
+async function getArtist(username) {
+  const res = await fetch(`https://api.example.com/artist/${username}`)
+  return res.json()
+}
+
+async function getAlbums(username) {
+  const res = await fetch(`https://api.example.com/artist/${username}/albums`)
+  return res.json()
+}
+
+export default async function Page({ params }) {
+  const { username } = await params
+
+  // 启动请求
+  const artistData = getArtist(username)
+  const albumsData = getAlbums(username)
+
+  const [artist, albums] = await Promise.all([artistData, albumsData])
+
+  return (
+    <>
+      <h1>{artist.name}</h1>
+      <Albums list={albums} />
+    </>
+  )
+}
+```
+
+> **值得注意的是**：使用 `Promise.all` 时，如果一个请求失败，整个操作都会失败。要处理这种情况，你可以使用 [`Promise.allSettled`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/allSettled) 方法代替。
+
+### 预加载数据
+
+你可以通过创建一个在阻塞请求之前急切调用的实用函数来预加载数据。`<Item>` 根据 `checkIsAvailable()` 函数有条件地渲染。
+
+你可以在 `checkIsAvailable()` 之前调用 `preload()` 以急切地启动 `<Item/>` 数据依赖项。在 `<Item/>` 渲染时，其数据已经被获取。
+
+```tsx filename="app/item/[id]/page.tsx" switcher
+import { getItem, checkIsAvailable } from '@/lib/data'
+
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  // 开始加载项目数据
+  preload(id)
+  // 执行另一个异步任务
+  const isAvailable = await checkIsAvailable()
+
+  return isAvailable ? <Item id={id} /> : null
+}
+
+export const preload = (id: string) => {
+  // void 计算给定的表达式并返回 undefined
+  // https://developer.mozilla.org/docs/Web/JavaScript/Reference/Operators/void
+  void getItem(id)
+}
+export async function Item({ id }: { id: string }) {
+  const result = await getItem(id)
+  // ...
+}
+```
+
+```jsx filename="app/item/[id]/page.js" switcher
+import { getItem, checkIsAvailable } from '@/lib/data'
+
+export default async function Page({ params }) {
+  const { id } = await params
+  // 开始加载项目数据
+  preload(id)
+  // 执行另一个异步任务
+  const isAvailable = await checkIsAvailable()
+
+  return isAvailable ? <Item id={id} /> : null
+}
+
+export const preload = (id) => {
+  // void 计算给定的表达式并返回 undefined
+  // https://developer.mozilla.org/docs/Web/JavaScript/Reference/Operators/void
+  void getItem(id)
+}
+export async function Item({ id }) {
+  const result = await getItem(id)
+  // ...
+```
+
+此外，你可以使用 React 的 [`cache` 函数](https://react.dev/reference/react/cache)和 [`server-only` 包](https://www.npmjs.com/package/server-only)创建可重用的实用函数。这种方法允许你缓存数据获取函数并确保它仅在服务器上执行。
+
+```ts filename="utils/get-item.ts" switcher
+import { cache } from 'react'
+import 'server-only'
+import { getItem } from '@/lib/data'
+
+export const preload = (id: string) => {
+  void getItem(id)
+}
+
+export const getItem = cache(async (id: string) => {
+  // ...
+})
+```
+
+```js filename="utils/get-item.js" switcher
+import { cache } from 'react'
+import 'server-only'
+import { getItem } from '@/lib/data'
+
+export const preload = (id) => {
+  void getItem(id)
+}
+
+export const getItem = cache(async (id) => {
+  // ...
+})
+```

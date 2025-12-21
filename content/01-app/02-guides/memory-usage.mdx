@@ -1,0 +1,170 @@
+---
+title: 如何优化内存使用
+nav_title: 内存使用
+description: 优化你的应用程序在开发和生产环境中使用的内存。
+slug: /docs/app/guides/memory-usage
+---
+
+随着应用程序的增长和功能的丰富，它们在本地开发或创建生产构建时可能需要更多资源。
+
+让我们探索一些策略和技术来优化内存并解决 Next.js 中常见的内存问题。
+
+## 减少依赖项数量
+
+拥有大量依赖项的应用程序将使用更多内存。
+
+[Bundle Analyzer](/docs/app/guides/package-bundling) 可以帮助你调查应用程序中的大型依赖项，这些依赖项可能可以被移除以提高性能和内存使用率。
+
+## 尝试 `experimental.webpackMemoryOptimizations`
+
+从 `v15.0.0` 开始，你可以在 `next.config.js` 文件中添加 `experimental.webpackMemoryOptimizations: true` 来改变 Webpack 的行为，这将减少最大内存使用量，但可能会略微增加编译时间。
+
+> **值得注意的是**：此功能目前处于实验阶段，需要在更多项目上进行测试，但它被认为是低风险的。
+
+## 使用 `--experimental-debug-memory-usage` 运行 `next build`
+
+从 `14.2.0` 开始，你可以运行 `next build --experimental-debug-memory-usage` 在一种模式下运行构建，Next.js 将在整个构建过程中持续打印有关内存使用的信息，例如堆使用情况和垃圾回收统计信息。当内存使用接近配置的限制时，还会自动获取堆快照。
+
+> **值得注意的是**：此功能与 Webpack 构建工作线程选项不兼容，除非你有自定义 webpack 配置，否则该选项会自动启用。
+
+## 记录堆配置文件
+
+要查找内存问题，你可以从 Node.js 记录堆配置文件并在 Chrome DevTools 中加载它以识别潜在的内存泄漏源。
+
+在你的终端中，在启动 Next.js 构建时将 `--heap-prof` 标志传递给 Node.js：
+
+```sh
+node --heap-prof node_modules/next/dist/bin/next build
+```
+
+在构建结束时，Node.js 将创建一个 `.heapprofile` 文件。
+
+在 Chrome DevTools 中，你可以打开 Memory 标签并单击"Load Profile"按钮来可视化该文件。
+
+## 分析堆快照
+
+你可以使用检查器工具来分析应用程序的内存使用情况。
+
+运行 `next build` 或 `next dev` 命令时，在命令开头添加 `NODE_OPTIONS=--inspect`。这将在默认端口上公开检查器代理。
+如果你希望在任何用户代码启动之前中断，可以传递 `--inspect-brk`。当进程运行时，你可以使用 Chrome DevTools 等工具连接到调试端口以记录和分析堆快照，查看正在保留的内存。
+
+从 `14.2.0` 开始，你还可以使用 `--experimental-debug-memory-usage` 标志运行 `next build`，以便更轻松地获取堆快照。
+
+在此模式下运行时，你可以随时向进程发送 `SIGUSR2` 信号，进程将获取堆快照。
+
+堆快照将保存到 Next.js 应用程序的项目根目录，并可以在任何堆分析器（例如 Chrome DevTools）中加载，以查看保留了哪些内存。此模式尚不兼容 Webpack 构建工作线程。
+
+有关更多信息，请参阅[如何记录和分析堆快照](https://developer.chrome.com/docs/devtools/memory-problems/heap-snapshots)。
+
+## Webpack 构建工作线程
+
+Webpack 构建工作线程允许你在单独的 Node.js 工作线程中运行 Webpack 编译，这将减少构建期间应用程序的内存使用。
+
+从 `v14.1.0` 开始，如果你的应用程序没有自定义 Webpack 配置，此选项默认启用。
+
+如果你使用的是较旧版本的 Next.js 或你有自定义 Webpack 配置，可以通过在 `next.config.js` 中设置 `experimental.webpackBuildWorker: true` 来启用此选项。
+
+> **值得注意的是**：此功能可能与所有自定义 Webpack 插件不兼容。
+
+## 禁用 Webpack 缓存
+
+[Webpack 缓存](https://webpack.js.org/configuration/cache/)将生成的 Webpack 模块保存在内存和/或磁盘中，以提高构建速度。这可以
+帮助提高性能，但它也会增加应用程序的内存使用量以存储缓存数据。
+
+你可以通过向应用程序添加[自定义 Webpack 配置](/docs/app/api-reference/config/next-config-js/webpack)来禁用此行为：
+
+```js filename="next.config.mjs"
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  webpack: (
+    config,
+    { buildId, dev, isServer, defaultLoaders, nextRuntime, webpack }
+  ) => {
+    if (config.cache && !dev) {
+      config.cache = Object.freeze({
+        type: 'memory',
+      })
+    }
+    // 重要：返回修改后的配置
+    return config
+  },
+}
+
+export default nextConfig
+```
+
+## 禁用静态分析
+
+类型检查可能需要大量内存，尤其是在大型项目中。
+然而，大多数项目都有专门的 CI 运行器来处理这些任务。
+当构建在"Running TypeScript"步骤期间产生内存不足问题时，你可以在构建期间禁用此任务：
+
+```js filename="next.config.mjs"
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  typescript: {
+    // !! 警告 !!
+    // 即使你的项目有类型错误，
+    // 也会危险地允许生产构建成功完成。
+    // !! 警告 !!
+    ignoreBuildErrors: true,
+  },
+}
+
+export default nextConfig
+```
+
+- [忽略 TypeScript 错误](/docs/app/api-reference/config/typescript#disabling-typescript-errors-in-production)
+
+请记住，这可能会由于类型错误而产生错误的部署。
+我们强烈建议仅在静态分析完成后将构建推广到生产环境。
+如果你部署到 Vercel，可以查看[暂存部署指南](https://vercel.com/docs/deployments/managing-deployments#staging-and-promoting-a-production-deployment)以了解如何在自定义任务成功后将构建推广到生产环境。
+
+## 禁用 source maps
+
+生成 source maps 会在构建过程中消耗额外的内存。
+
+你可以通过在 Next.js 配置中添加 `productionBrowserSourceMaps: false` 和 `experimental.serverSourceMaps: false` 来禁用 source map 生成。
+
+当使用 `cacheComponents` 功能时，Next.js 将在 `next build` 的预渲染阶段默认使用 source maps。
+如果你在该阶段（在"Generating static pages"之后）持续遇到内存问题，
+你可以尝试通过在 Next.js 配置中添加 `enablePrerenderSourceMaps: false` 来禁用该阶段的 source maps。
+
+> **值得注意的是**：某些插件可能会启用 source maps，可能需要自定义配置才能禁用。
+
+## Edge 内存问题
+
+Next.js `v14.1.3` 修复了使用 Edge runtime 时的内存问题。请更新到此版本（或更高版本）以查看是否解决了你的问题。
+
+## 预加载入口
+
+当 Next.js 服务器启动时，它会将每个页面的 JavaScript 模块预加载到内存中，而不是在请求时加载。
+
+此优化允许更快的响应时间，但代价是更大的初始内存占用。
+
+要禁用此优化，请将 `experimental.preloadEntriesOnStart` 标志设置为 `false`。
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const config: NextConfig = {
+  experimental: {
+    preloadEntriesOnStart: false,
+  },
+}
+
+export default config
+```
+
+```js filename="next.config.mjs" switcher
+/** @type {import('next').NextConfig} */
+const config = {
+  experimental: {
+    preloadEntriesOnStart: false,
+  },
+}
+
+export default config
+```
+
+Next.js 不会卸载这些 JavaScript 模块，这意味着即使禁用此优化，如果最终请求所有页面，你的 Next.js 服务器的内存占用最终也会相同。

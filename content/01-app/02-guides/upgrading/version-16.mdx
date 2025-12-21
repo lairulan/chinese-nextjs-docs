@@ -1,0 +1,1136 @@
+---
+title: 如何升级到版本 16
+nav_title: 版本 16
+description: 将你的 Next.js 应用程序从版本 15 升级到 16。
+slug: /docs/app/guides/upgrading/version-16
+---
+
+{/* The content of this doc is shared between the app and pages router. You can use the `<PagesOnly>Content</PagesOnly>` component to add content that is specific to the Pages Router. Any shared content should not be wrapped in a component. */}
+
+## 从 15 升级到 16
+
+### 使用 AI Agents 和 Next.js DevTools MCP
+
+如果你正在使用支持 [Model Context Protocol (MCP)](https://modelcontextprotocol.io) 的 AI 编码助手，可以使用 **Next.js DevTools MCP** 来自动化升级过程和迁移任务。
+
+#### 设置
+
+将以下配置添加到你的 MCP 客户端，例如：
+
+```json
+{
+  "mcpServers": {
+    "next-devtools": {
+      "command": "npx",
+      "args": ["-y", "next-devtools-mcp@latest"]
+    }
+  }
+}
+```
+
+有关更多信息，请访问 npm 上的 [`next-devtools-mcp`](https://www.npmjs.com/package/next-devtools-mcp) 包，以配置你的 MCP 客户端。
+
+> **注意：** 使用 `next-devtools-mcp@latest` 可确保你的 MCP 客户端始终使用最新版本的 Next.js DevTools MCP 服务器。
+
+#### 示例提示
+
+配置完成后，你可以使用自然语言提示来升级你的 Next.js 应用：
+
+**升级到 Next.js 16：**
+
+连接到你的编码代理，然后提示：
+
+```txt
+Next Devtools, help me upgrade my Next.js app to version 16
+```
+
+**迁移到 Cache Components（升级到 v16 后）：**
+
+连接到你的编码代理，然后提示：
+
+```txt
+Next Devtools, migrate my Next.js app to cache components
+```
+
+了解更多信息，请参阅文档 [这里](/docs/app/guides/mcp)。
+
+### 使用 Codemod
+
+要更新到 Next.js 版本 16，你可以使用 `upgrade` [codemod](/docs/app/guides/upgrading/codemods#160)：
+
+```bash filename="Terminal"
+npx @next/codemod@canary upgrade latest
+```
+
+该 [codemod](/docs/app/guides/upgrading/codemods#160) 能够：
+
+- 更新 `next.config.js` 以使用新的 `turbopack` 配置
+- 从 `next lint` 迁移到 ESLint CLI
+- 从已弃用的 `middleware` 约定迁移到 `proxy`
+- 从稳定的 API 中删除 `unstable_` 前缀
+- 从页面和布局中删除 `experimental_ppr` Route Segment Config
+
+如果你更喜欢手动操作，请安装最新的 Next.js 和 React 版本：
+
+```bash filename="Terminal"
+npm install next@latest react@latest react-dom@latest
+```
+
+如果你使用 TypeScript，请确保也将 `@types/react` 和 `@types/react-dom` 升级到最新版本。
+
+## Node.js 运行时和浏览器支持
+
+| 要求          | 变更 / 详情                                                        |
+| ------------- | ------------------------------------------------------------------ |
+| Node.js 20.9+ | 最低版本现在是 `20.9.0`（LTS）；不再支持 Node.js 18                |
+| TypeScript 5+ | 最低版本现在是 `5.1.0`                                             |
+| 浏览器        | Chrome 111+、Edge 111+、Firefox 111+、Safari 16.4+                 |
+
+## 默认使用 Turbopack
+
+从 **Next.js 16** 开始，Turbopack 已稳定，并默认与 `next dev` 和 `next build` 一起使用。
+
+以前你必须使用 `--turbopack` 或 `--turbo` 来启用 Turbopack。
+
+```json filename="package.json"
+{
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build --turbopack",
+    "start": "next start"
+  }
+}
+```
+
+这不再需要。你可以更新你的 `package.json` 脚本：
+
+```json filename="package.json"
+{
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  }
+}
+```
+
+如果你的项目有[自定义 `webpack`](/docs/app/api-reference/config/next-config-js/webpack) 配置，并且你运行 `next build`（现在默认使用 Turbopack），构建将**失败**以防止配置错误问题。
+
+你有几种不同的方法来解决这个问题：
+
+- **仍然使用 Turbopack：** 使用 `next build --turbopack` 运行以使用 Turbopack 构建并忽略你的 `webpack` 配置。
+- **完全切换到 Turbopack：** 将你的 `webpack` 配置迁移到 Turbopack 兼容的选项。
+- **继续使用 Webpack：** 使用 `--webpack` 标志退出 Turbopack 并使用 Webpack 构建。
+
+> **值得注意的是**：如果你看到因为找到了 `webpack` 配置而导致构建失败，但你自己没有定义配置，很可能是某个插件添加了 `webpack` 选项
+
+### 退出 Turbopack
+
+如果你需要继续使用 Webpack，可以使用 `--webpack` 标志退出。例如，在开发中使用 Turbopack，但在生产构建中使用 Webpack：
+
+```json filename="package.json"
+{
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build --webpack",
+    "start": "next start"
+  }
+}
+```
+
+我们建议在开发和生产中都使用 Turbopack。如果你无法切换到 Turbopack，请在此[讨论串](https://github.com/vercel/next.js/discussions/77721)中提交评论。
+
+### Turbopack 配置位置
+
+`experimental.turbopack` 配置已不再是实验性的。
+
+```ts filename="next.config.ts"
+import type { NextConfig } from 'next'
+
+// Next.js 15 - experimental.turbopack
+const nextConfig: NextConfig = {
+  experimental: {
+    turbopack: {
+      // options
+    },
+  },
+}
+
+export default nextConfig
+```
+
+你可以将其用作顶级 `turbopack` 选项：
+
+```ts filename="next.config.ts"
+import type { NextConfig } from 'next'
+
+// Next.js 16 - turbopack 位于 nextConfig 的顶层
+const nextConfig: NextConfig = {
+  turbopack: {
+    // options
+  },
+}
+
+export default nextConfig
+```
+
+请务必查看 `Turbopack` 配置[选项](/docs/app/api-reference/config/next-config-js/turbopack)。**Next.js 16** 引入了各种改进和新选项，例如：
+
+- [高级 Webpack loader 条件](/docs/app/api-reference/config/next-config-js/turbopack#advanced-webpack-loader-conditions)
+- [debugIds](/docs/app/api-reference/config/next-config-js/turbopack#debug-ids)
+
+### Resolve alias fallback
+
+在某些项目中，客户端代码可能会导入包含 Node.js 原生模块的文件。这将导致 `Module not found: Can't resolve 'fs'` 类型的错误。
+
+发生这种情况时，你应该重构代码，使客户端包不引用这些 Node.js 原生模块。
+
+但是，在某些情况下，这可能无法实现。在 Webpack 中，通常使用 `resolve.fallback` 选项来**消除**错误。Turbopack 提供了类似的选项，使用 `turbopack.resolveAlias`。在这种情况下，告诉 Turbopack 在浏览器请求 `fs` 时加载一个空模块。
+
+```ts filename="next.config.ts"
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  turbopack: {
+    resolveAlias: {
+      fs: {
+        browser: './empty.ts', // 我们建议在使用此方法之前修复代码导入
+      },
+    },
+  },
+}
+
+export default nextConfig
+```
+
+最好重构你的模块，使客户端代码永远不会从使用 Node.js 原生模块的模块导入。
+
+### Sass node_modules 导入
+
+Turbopack 完全支持从 `node_modules` 导入 Sass 文件。请注意，虽然 Webpack 允许使用传统的波浪号（`~`）前缀，但 Turbopack 不支持此语法。
+
+在 Webpack 中：
+
+```scss filename="styles/globals.scss"
+@import '~bootstrap/dist/css/bootstrap.min.css';
+```
+
+在 Turbopack 中：
+
+```scss filename="styles/globals.scss"
+@import 'bootstrap/dist/css/bootstrap.min.css';
+```
+
+如果无法更改导入，可以使用 `turbopack.resolveAlias`。例如：
+
+```ts filename="next.config.ts"
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  turbopack: {
+    resolveAlias: {
+      '~*': '*',
+    },
+  },
+}
+
+export default nextConfig
+```
+
+### Turbopack 文件系统缓存（beta）
+
+Turbopack 现在支持开发中的文件系统缓存，在运行之间将编译器工件存储在磁盘上，以显著加快重启时的编译时间。
+
+在你的配置中启用文件系统缓存：
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  experimental: {
+    turbopackFileSystemCacheForDev: true,
+  },
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  experimental: {
+    turbopackFileSystemCacheForDev: true,
+  },
+}
+
+module.exports = nextConfig
+```
+
+## 异步请求 API（破坏性变更）
+
+版本 15 引入了[异步请求 API](https://nextjs.org/docs/app/guides/upgrading/version-15#async-request-apis-breaking-change) 作为破坏性变更，并提供**临时**的同步兼容性。
+
+从 **Next.js 16** 开始，同步访问完全删除。这些 API 只能异步访问。
+
+- [`cookies`](/docs/app/api-reference/functions/cookies)
+- [`headers`](/docs/app/api-reference/functions/headers)
+- [`draftMode`](/docs/app/api-reference/functions/draft-mode)
+- [`layout.js`](/docs/app/api-reference/file-conventions/layout)、[`page.js`](/docs/app/api-reference/file-conventions/page)、[`route.js`](/docs/app/api-reference/file-conventions/route)、[`default.js`](/docs/app/api-reference/file-conventions/default)、[`opengraph-image`](/docs/app/api-reference/file-conventions/metadata/opengraph-image#opengraph-image)、[`twitter-image`](/docs/app/api-reference/file-conventions/metadata/opengraph-image#twitter-image)、[`icon`](/docs/app/api-reference/file-conventions/metadata/app-icons#icon) 和 [`apple-icon`](/docs/app/api-reference/file-conventions/metadata/app-icons#apple-icon) 中的 `params`。
+- [`page.js`](/docs/app/api-reference/file-conventions/page) 中的 `searchParams`
+
+使用 [codemod](/docs/app/guides/upgrading/codemods#migrate-to-async-dynamic-apis) 迁移到异步 Dynamic API。
+
+### 迁移异步 Dynamic API 的类型
+
+为了帮助迁移到异步 `params` 和 `searchParams`，你可以运行 [`npx next typegen`](/docs/app/api-reference/cli/next#next-typegen-options) 来自动生成这些全局可用的类型辅助程序：
+
+- [`PageProps`](/docs/app/api-reference/file-conventions/page#page-props-helper)
+- [`LayoutProps`](/docs/app/api-reference/file-conventions/layout#layout-props-helper)
+- [`RouteContext`](/docs/app/api-reference/file-conventions/route#route-context-helper)
+
+> **值得注意的是**：`typegen` 在 Next.js 15.5 中引入
+
+这简化了对新异步 API 模式的类型安全迁移，并使你能够以完全的类型安全性更新组件，例如：
+
+```tsx filename="/app/blog/[slug]/page.tsx"
+export default async function Page(props: PageProps<'/blog/[slug]'>) {
+  const { slug } = await props.params
+  const query = await props.searchParams
+  return <h1>Blog Post: {slug}</h1>
+}
+```
+
+这种方法为你提供了对 `props.params`（包括 `slug`）和 `searchParams` 的完全类型安全访问，直接在你的页面中。
+
+## icon 和 open-graph Image 的异步参数（破坏性变更）
+
+> 传递给 `opengraph-image`、`twitter-image`、`icon` 和 `apple-icon` 中图像生成函数的 props 现在是 Promise。
+
+在以前的版本中，`Image`（图像生成函数）和 `generateImageMetadata` 都接收一个 `params` 对象。`generateImageMetadata` 返回的 `id` 作为字符串传递给图像生成函数。
+
+```js filename="app/shop/[slug]/opengraph-image.js"
+// Next.js 15 - 同步 params 访问
+export function generateImageMetadata({ params }) {
+  const { slug } = params
+  return [{ id: '1' }, { id: '2' }]
+}
+
+// Next.js 15 - 同步 params 和 id 访问
+export default function Image({ params, id }) {
+  const slug = params.slug
+  const imageId = id // string
+  // ...
+}
+```
+
+从 **Next.js 16** 开始，为了与[异步请求 API](#async-request-apis-breaking-change) 变更保持一致，这些也是异步的。
+
+```js filename="app/shop/[slug]/opengraph-image.js"
+// Next.js 16 - 异步 params 访问
+export async function generateImageMetadata({ params }) {
+  const { slug } = await params
+  return [{ id: '1' }, { id: '2' }]
+}
+
+// Next.js 16 - 异步 params 和 id 访问
+export default async function Image({ params, id }) {
+  const { slug } = await params // params 现在是异步的
+  const imageId = await id // 使用 generateImageMetadata 时，id 现在是 Promise<string>
+  // ...
+}
+```
+
+## React 19.2
+
+**Next.js 16** 中的 App Router 使用最新的 React [Canary 版本](https://react.dev/blog/2023/05/03/react-canaries)，其中包括新发布的 React 19.2 功能和其他正在逐步稳定的功能。亮点包括：
+
+- **[View Transitions](https://react.dev/reference/react/ViewTransition)**：为在 Transition 或导航中更新的元素添加动画
+- **[`useEffectEvent`](https://react.dev/reference/react/useEffectEvent)**：将非响应式逻辑从 Effect 中提取到可重用的 Effect Event 函数中
+- **[Activity](https://react.dev/reference/react/Activity)**：通过使用 `display: none` 隐藏 UI 同时保持状态并清理 Effect 来渲染"后台活动"
+
+在 [React 19.2 公告](https://react.dev/blog/2025/10/01/react-19-2)中了解更多信息。
+
+## React Compiler 支持
+
+随着 React Compiler 1.0 版本的发布，**Next.js 16** 中对 React Compiler 的内置支持现在已稳定。React Compiler 会自动记忆组件，减少不必要的重新渲染，无需手动更改代码。
+
+`reactCompiler` 配置选项已从 `experimental` 升级为稳定。它默认不启用，因为我们继续收集不同应用程序类型的构建性能数据。
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  reactCompiler: true,
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactCompiler: true,
+}
+
+module.exports = nextConfig
+```
+
+安装最新版本的 React Compiler 插件：
+
+```bash filename="Terminal"
+npm install -D babel-plugin-react-compiler
+```
+
+> **值得注意的是**：启用此选项时，预计开发和构建期间的编译时间会更长，因为 React Compiler 依赖于 Babel。
+
+## 缓存 API
+
+### revalidateTag
+
+[`revalidateTag`](/docs/app/api-reference/functions/revalidateTag) 有一个新的函数签名。你可以将 [`cacheLife`](/docs/app/api-reference/functions/cacheLife#reference) 配置文件作为第二个参数传递。
+
+```ts filename="app/actions.ts" switcher
+'use server'
+
+import { revalidateTag } from 'next/cache'
+
+export async function updateArticle(articleId: string) {
+  // 将文章数据标记为过时 - 文章读者在重新验证时看到过时数据
+  revalidateTag(`article-${articleId}`, 'max')
+}
+```
+
+```js filename="app/actions.js" switcher
+'use server'
+
+import { revalidateTag } from 'next/cache'
+
+export async function updateArticle(articleId) {
+  // 将文章数据标记为过时 - 文章读者在重新验证时看到过时数据
+  revalidateTag(`article-${articleId}`, 'max')
+}
+```
+
+对于更新略有延迟可以接受的内容（如博客文章、产品目录或文档），使用 `revalidateTag`。用户会在后台加载新数据时收到过时的内容。
+
+### updateTag
+
+[`updateTag`](/docs/app/api-reference/functions/updateTag) 是一个新的仅限 [Server Actions](/docs/app/getting-started/updating-data#what-are-server-functions) 的 API，它提供**读写一致性**语义，用户进行更改后 UI 会立即显示更改，而不是过时数据。
+
+它通过在同一请求中使数据过期并立即刷新来实现这一点。
+
+```ts filename="app/actions.ts" switcher
+'use server'
+
+import { updateTag } from 'next/cache'
+
+export async function updateUserProfile(userId: string, profile: Profile) {
+  await db.users.update(userId, profile)
+
+  // 使缓存过期并立即刷新 - 用户立即看到他们的更改
+  updateTag(`user-${userId}`)
+}
+```
+
+```js filename="app/actions.js" switcher
+'use server'
+
+import { updateTag } from 'next/cache'
+
+export async function updateUserProfile(userId, profile) {
+  await db.users.update(userId, profile)
+
+  // 使缓存过期并立即刷新 - 用户立即看到他们的更改
+  updateTag(`user-${userId}`)
+}
+```
+
+这确保交互功能立即反映更改。非常适合表单、用户设置以及用户期望立即看到其更新的任何工作流。
+
+在[此处](/docs/app/api-reference/functions/updateTag#when-to-use-updatetag)了解何时使用 `updateTag` 或 `revalidateTag`。
+
+### refresh
+
+[`refresh`](/docs/app/api-reference/functions/refresh) 允许你从 Server Action 中刷新客户端路由器。
+
+```ts filename="app/actions.ts" switcher
+'use server'
+
+import { refresh } from 'next/cache'
+
+export async function markNotificationAsRead(notificationId: string) {
+  // 在数据库中更新通知
+  await db.notifications.markAsRead(notificationId)
+
+  // 刷新标题中显示的通知计数
+  refresh()
+}
+```
+
+```js filename="app/actions.js" switcher
+'use server'
+
+import { refresh } from 'next/cache'
+
+export async function markNotificationAsRead(notificationId) {
+  // 在数据库中更新通知
+  await db.notifications.markAsRead(notificationId)
+
+  // 刷新标题中显示的通知计数
+  refresh()
+}
+```
+
+当你需要在执行操作后刷新客户端路由器时使用它。
+
+### cacheLife 和 cacheTag
+
+[`cacheLife`](/docs/app/api-reference/functions/cacheLife) 和 [`cacheTag`](/docs/app/api-reference/functions/cacheTag) 现在已稳定。不再需要 `unstable_` 前缀。
+
+如果你有类似这样的别名导入：
+
+```ts
+import {
+  unstable_cacheLife as cacheLife,
+  unstable_cacheTag as cacheTag,
+} from 'next/cache'
+```
+
+你可以将导入更新为：
+
+```ts
+import { cacheLife, cacheTag } from 'next/cache'
+```
+
+## 增强的路由和导航
+
+**Next.js 16** 包括对路由和导航系统的完全改造，使页面转换更精简、更快速。这优化了 Next.js 预取和缓存导航数据的方式：
+
+- **布局去重**：预取具有共享布局的多个 URL 时，布局只下载一次。
+- **增量预取**：Next.js 仅预取缓存中尚未存在的部分，而不是整个页面。
+
+这些更改**无需代码修改**，旨在提高所有应用的性能。
+
+但是，你可能会看到更多单独的预取请求，但总传输大小要低得多。我们认为这对于几乎所有应用程序来说都是正确的权衡。
+
+如果增加的请求数量导致问题，请通过创建 [issue](https://github.com/vercel/next.js/issues) 或 [discussion](https://github.com/vercel/next.js/discussions) 项目告诉我们。
+
+## Partial Pre-Rendering (PPR)
+
+**Next.js 16** 删除了实验性的 **Partial Pre-Rendering (PPR)** 标志和配置选项，包括路由级段 `experimental_ppr`。
+
+从 **Next.js 16** 开始，你可以使用 [`cacheComponents`](/docs/app/api-reference/config/next-config-js/cacheComponents) 配置选择加入 PPR。
+
+```js filename="next.config.js"
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  cacheComponents: true,
+}
+
+module.exports = nextConfig
+```
+
+**Next.js 16** 中的 PPR 与 **Next.js 15** canary 中的工作方式不同。如果你今天正在使用 PPR，请保持在当前使用的 Next.js 15 canary 中。我们将跟进有关如何迁移到 Cache Components 的指南。
+
+```js filename="next.config.js"
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // 如果你今天正在使用 PPR
+  // 请保持在当前的 Next.js 15 canary 中
+  experimental: {
+    ppr: true,
+  },
+}
+
+module.exports = nextConfig
+```
+
+## `middleware` 到 `proxy`
+
+`middleware` 文件名已弃用，并已重命名为 `proxy` 以阐明网络边界和路由焦点。
+
+`proxy` **不**支持 `edge` 运行时。`proxy` 运行时是 `nodejs`，且无法配置。如果你想继续使用 `edge` 运行时，请继续使用 `middleware`。我们将在小版本中跟进进一步的 `edge` 运行时说明。
+
+```bash filename="Terminal"
+# 重命名你的 middleware 文件
+mv middleware.ts proxy.ts
+# 或
+mv middleware.js proxy.js
+```
+
+命名导出 `middleware` 也已弃用。将你的函数重命名为 `proxy`。
+
+```ts filename="proxy.ts" switcher
+export function proxy(request: Request) {}
+```
+
+```js filename="proxy.js" switcher
+export function proxy(request) {}
+```
+
+我们建议将函数名称更改为 `proxy`，即使你使用的是默认导出。
+
+包含 `middleware` 名称的配置标志也被重命名。例如，`skipMiddlewareUrlNormalize` 现在是 `skipProxyUrlNormalize`
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  skipProxyUrlNormalize: true,
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  skipProxyUrlNormalize: true,
+}
+
+module.exports = nextConfig
+```
+
+版本 16 [codemod](/docs/app/guides/upgrading/codemods#160) 也能够更新这些标志。
+
+## `next/image` 变更
+
+### 带查询字符串的本地图像（破坏性变更）
+
+带查询字符串的本地图像源现在需要 `images.localPatterns.search` 配置以防止枚举攻击。
+
+```tsx filename="app/page.tsx"
+import Image from 'next/image'
+
+export default function Page() {
+  return <Image src="/assets/photo?v=1" alt="Photo" width="100" height="100" />
+}
+```
+
+如果你需要在本地图像中使用查询字符串，请将模式添加到你的配置中：
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  images: {
+    localPatterns: [
+      {
+        pathname: '/assets/**',
+        search: '?v=1',
+      },
+    ],
+  },
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  images: {
+    localPatterns: [
+      {
+        pathname: '/assets/**',
+        search: '?v=1',
+      },
+    ],
+  },
+}
+
+module.exports = nextConfig
+```
+
+### `minimumCacheTTL` 默认值（破坏性变更）
+
+`images.minimumCacheTTL` 的默认值已从 `60 秒` 更改为 `4 小时`（14400 秒）。这减少了没有 cache-control 头的图像的重新验证成本。
+
+对于一些 Next.js 用户来说，图像重新验证频繁发生，通常是因为上游源图像缺少 `cache-control` 头。这导致每 `60` 秒发生一次重新验证，增加了 CPU 使用率和成本。
+
+由于大多数图像不经常更改，这个短间隔并不理想。将默认值设置为 4 小时默认提供更持久的缓存，同时仍然允许图像在需要时每天更新几次。
+
+如果你需要以前的行为，请将 `minimumCacheTTL` 更改为较低的值，例如改回 `60` 秒：
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  images: {
+    minimumCacheTTL: 60,
+  },
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  images: {
+    minimumCacheTTL: 60,
+  },
+}
+
+module.exports = nextConfig
+```
+
+### `imageSizes` 默认值（破坏性变更）
+
+值 `16` 已从默认的 `images.imageSizes` 数组中删除。
+
+我们查看了请求分析，发现很少有项目提供 16 像素宽度的图像。删除此设置可减少 `next/image` 传送到浏览器的 `srcset` 属性的大小。
+
+如果你需要支持 16px 图像：
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  images: {
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+  },
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  images: {
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+  },
+}
+
+module.exports = nextConfig
+```
+
+我们认为 16 像素宽度的图像变得不那么常见，而不是缺乏开发者使用，因为 `devicePixelRatio: 2` 实际上会获取 32px 图像以防止在视网膜显示器中出现模糊。
+
+### `qualities` 默认值（破坏性变更）
+
+`images.qualities` 的默认值已从允许所有质量更改为仅 `[75]`。
+
+如果你需要支持多个质量级别：
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  images: {
+    qualities: [50, 75, 100],
+  },
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  images: {
+    qualities: [50, 75, 100],
+  },
+}
+
+module.exports = nextConfig
+```
+
+如果你指定的 `quality` prop 不包含在 `image.qualities` 数组中，质量将被强制转换为 `images.qualities` 中最接近的值。例如，给定上述配置，`quality` prop 为 80 时，会被强制转换为 75。
+
+### 本地 IP 限制（破坏性变更）
+
+新的安全限制默认阻止本地 IP 优化。仅对私有网络将 `images.dangerouslyAllowLocalIP` 设置为 `true`。
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  images: {
+    dangerouslyAllowLocalIP: true, // 仅适用于私有网络
+  },
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  images: {
+    dangerouslyAllowLocalIP: true, // 仅适用于私有网络
+  },
+}
+
+module.exports = nextConfig
+```
+
+### 最大重定向次数（破坏性变更）
+
+`images.maximumRedirects` 的默认值已从无限制更改为最多 3 次重定向。
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  images: {
+    maximumRedirects: 0, // 禁用重定向
+    // 或
+    maximumRedirects: 5, // 增加以应对边缘情况
+  },
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  images: {
+    maximumRedirects: 0, // 禁用重定向
+    // 或
+    maximumRedirects: 5, // 增加以应对边缘情况
+  },
+}
+
+module.exports = nextConfig
+```
+
+### `next/legacy/image` 组件（已弃用）
+
+`next/legacy/image` 组件已弃用。请改用 `next/image`：
+
+```tsx
+// 之前
+import Image from 'next/legacy/image'
+
+// 之后
+import Image from 'next/image'
+```
+
+### `images.domains` 配置（已弃用）
+
+`images.domains` 配置已弃用。
+
+```js filename="next.config.js"
+// image.domains 已弃用
+module.exports = {
+  images: {
+    domains: ['example.com'],
+  },
+}
+```
+
+请改用 `images.remotePatterns` 以提高安全性：
+
+```js filename="next.config.js"
+// 请改用 image.remotePatterns
+module.exports = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'example.com',
+      },
+    ],
+  },
+}
+```
+
+## 并发 `dev` 和 `build`
+
+`next dev` 和 `next build` 现在使用单独的输出目录，可以并发执行。`next dev` 命令输出到 `.next/dev`。这是新的默认行为，由 [isolatedDevBuild](/docs/app/api-reference/config/next-config-js/isolatedDevBuild) 控制。
+
+此外，锁文件机制可防止在同一项目上运行多个 `next dev` 或 `next build` 实例。
+
+由于开发服务器输出到 `.next/dev`，[Turbopack 跟踪命令](/docs/app/guides/local-development#turbopack-tracing)应该是：
+
+```bash
+npx next internal trace .next/dev/trace-turbopack
+```
+
+## Parallel Routes `default.js` 要求
+
+所有 [parallel route](/docs/app/api-reference/file-conventions/parallel-routes) 插槽现在都需要显式的 `default.js` 文件。没有它们构建将失败。
+
+要保持以前的行为，请创建一个调用 `notFound()` 或返回 `null` 的 [`default.js`](/docs/app/api-reference/file-conventions/default) 文件。
+
+```tsx filename="app/@modal/default.tsx"
+import { notFound } from 'next/navigation'
+
+export default function Default() {
+  notFound()
+}
+```
+
+或返回 `null`：
+
+```tsx filename="app/@modal/default.tsx"
+export default function Default() {
+  return null
+}
+```
+
+## ESLint Flat Config
+
+`@next/eslint-plugin-next` 现在默认为 ESLint Flat Config 格式，与 ESLint v10 保持一致，后者将放弃对旧版配置的支持。
+
+请务必查看我们的 [`@next/eslint-plugin-next`](/docs/app/api-reference/config/eslint#setup-eslint) 插件 API 参考。
+
+如果你使用的是旧版 `.eslintrc` 格式，请考虑迁移到 flat config 格式。有关详细信息，请参阅 [ESLint 迁移指南](https://eslint.org/docs/latest/use/configure/migration-guide)。
+
+## 滚动行为覆盖
+
+在 **Next.js 的以前版本**中，如果你通过 CSS 在 `<html>` 元素上全局设置了 `scroll-behavior: smooth`，Next.js 会在 SPA 路由转换期间覆盖它，如下所示：
+
+1. 暂时将 `scroll-behavior` 设置为 `auto`
+2. 执行导航（导致立即滚动到顶部）
+3. 恢复原始的 `scroll-behavior` 值
+
+这确保即使你为页面内导航启用了平滑滚动，页面导航也始终感觉迅速和即时。但是，这种操作可能会很昂贵，特别是在每次导航开始时。
+
+在 **Next.js 16** 中，此行为已更改。默认情况下，Next.js 将**不再覆盖**你在导航期间的 `scroll-behavior` 设置。
+
+**如果你希望 Next.js 执行此覆盖**（以前的默认行为），请将 `data-scroll-behavior="smooth"` 属性添加到你的 `<html>` 元素：
+
+```tsx filename="app/layout.tsx"
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en" data-scroll-behavior="smooth">
+      <body>{children}</body>
+    </html>
+  )
+}
+```
+
+## 性能改进
+
+对 `next dev` 和 `next start` 命令进行了重大性能优化，以及改进的终端输出，包括更清晰的格式、更好的错误消息和改进的性能指标。
+
+**Next.js 16** 从 `next build` 输出中删除了 `size` 和 `First Load JS` 指标。我们发现这些在使用 React Server Components 的服务器驱动架构中不准确。我们的 Turbopack 和 Webpack 实现都存在问题，并且在如何计算 Client Components 有效负载方面存在分歧。
+
+衡量实际路由性能的最有效方法是使用 [Chrome Lighthouse](https://developer.chrome.com/docs/lighthouse/overview) 或 Vercel Analytics 等工具，这些工具专注于 Core Web Vitals 和下载的资源大小。
+
+### `next dev` 配置加载
+
+在以前的版本中，Next 配置文件在开发期间加载了两次：
+
+- 运行 `next dev` 命令时
+- `next dev` 命令启动 Next.js 服务器时
+
+这效率低下，因为 `next dev` 命令不需要配置文件来启动 Next.js 服务器。
+
+此更改的结果是，在 Next.js 配置文件中运行 `next dev` 检查 `process.argv` 是否包含 `'dev'` 时，将返回 `false`。
+
+> **值得注意的是**：`typegen` 和 `build` 命令在 `process.argv` 中仍然可见。
+
+这对于在 `next dev` 上触发副作用的插件尤其重要。如果是这种情况，检查 `NODE_ENV` 是否设置为 `development` 可能就足够了。
+
+```js filename="next.config.js"
+import { startServer } from 'docs-lib/dev-server'
+
+const isDev = process.env.NODE_ENV === 'development'
+
+if (isDev) {
+  startServer()
+}
+
+const nextConfig = {
+  /* Your config options */
+}
+
+module.exports = nextConfig
+```
+
+或者，使用加载配置的 [`phase`](/docs/app/api-reference/config/next-config-js#phase)。
+
+## Build Adapters API（alpha）
+
+继 [Build Adapters RFC](https://github.com/vercel/next.js/discussions/77740) 之后，Build Adapters API 的第一个 alpha 版本现已可用。
+
+Build Adapters 允许你创建挂钩到构建过程的自定义适配器，使部署平台和自定义构建集成能够修改 Next.js 配置或处理构建输出。
+
+```js filename="next.config.js"
+const nextConfig = {
+  experimental: {
+    adapterPath: require.resolve('./my-adapter.js'),
+  },
+}
+
+module.exports = nextConfig
+```
+
+在 [RFC 讨论](https://github.com/vercel/next.js/discussions/77740)中分享你的反馈。
+
+## Modern Sass API
+
+`sass-loader` 已升级到 v16，支持[现代 Sass 语法](https://sass-lang.com/documentation/js-api/#md:usage)和新功能。
+
+## 删除
+
+这些功能之前已弃用，现在已删除：
+
+### AMP 支持
+
+AMP 的采用率显著下降，维护此功能会增加框架的复杂性。所有 AMP API 和配置都已删除：
+
+- 从 Next 配置文件中删除 `amp` 配置
+- `next/amp` 钩子导入和使用（`useAmp`）
+
+```tsx
+// 已删除
+import { useAmp } from 'next/amp'
+
+// 已删除
+export const config = { amp: true }
+```
+
+- 从页面中删除 `export const config = { amp: true }`
+
+```js filename="next.config.js"
+const nextConfig = {
+  // 已删除
+  amp: {
+    canonicalBase: 'https://example.com',
+  },
+}
+
+export default nextConfig
+```
+
+评估 AMP 是否仍然对你的用例必要。现在可以通过 Next.js 的内置优化和现代 Web 标准实现大多数性能优势。
+
+### `next lint` 命令
+
+`next lint` 命令已删除。直接使用 Biome 或 ESLint。`next build` 不再运行 linting。
+
+可使用 codemod 来自动化迁移：
+
+```bash filename="Terminal"
+npx @next/codemod@canary next-lint-to-eslint-cli .
+```
+
+Next.js 配置文件中的 `eslint` 选项也已删除。
+
+```js filename="next.config.mjs"
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // 不再支持
+  // eslint: {},
+}
+
+export default nextConfig
+```
+
+### 运行时配置
+
+`serverRuntimeConfig` 和 `publicRuntimeConfig` 已删除。请改用环境变量。
+
+**之前（Next.js 15）：**
+
+```js filename="next.config.js"
+module.exports = {
+  serverRuntimeConfig: {
+    dbUrl: process.env.DATABASE_URL,
+  },
+  publicRuntimeConfig: {
+    apiUrl: '/api',
+  },
+}
+```
+
+```tsx filename="pages/index.tsx"
+import getConfig from 'next/config'
+
+export default function Page() {
+  const { publicRuntimeConfig } = getConfig()
+  return <p>API URL: {publicRuntimeConfig.apiUrl}</p>
+}
+```
+
+**之后（Next.js 16）：**
+
+对于仅服务器的值，直接在 Server Components 中访问环境变量：
+
+```tsx filename="app/page.tsx"
+async function fetchData() {
+  const dbUrl = process.env.DATABASE_URL
+  // 仅用于服务器端操作
+  return await db.query(dbUrl, 'SELECT * FROM users')
+}
+
+export default async function Page() {
+  const data = await fetchData()
+  return <div>{/* render data */}</div>
+}
+```
+
+> **值得注意的是**：使用 [taint API](/docs/app/api-reference/config/next-config-js/taint) 防止意外地将敏感的服务器值传递给 Client Components。
+
+对于客户端可访问的值，使用 `NEXT_PUBLIC_` 前缀：
+
+```bash filename=".env.local"
+NEXT_PUBLIC_API_URL="/api"
+```
+
+```tsx filename="app/components/client-component.tsx"
+'use client'
+
+export default function ClientComponent() {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+  return <p>API URL: {apiUrl}</p>
+}
+```
+
+要确保在运行时读取环境变量（而不是在构建时捆绑），请在从 `process.env` 读取之前使用 [`connection()`](/docs/app/api-reference/functions/connection) 函数：
+
+```tsx filename="app/page.tsx"
+import { connection } from 'next/server'
+
+export default async function Page() {
+  await connection()
+  const config = process.env.RUNTIME_CONFIG
+  return <p>{config}</p>
+}
+```
+
+了解更多关于[环境变量](/docs/app/guides/environment-variables)的信息。
+
+### `devIndicators` 选项
+
+以下选项已从 [`devIndicators`](/docs/app/api-reference/config/next-config-js/devIndicators) 中删除：
+
+- `appIsrStatus`
+- `buildActivity`
+- `buildActivityPosition`
+
+指示器本身仍然可用。
+
+### `experimental.dynamicIO`
+
+`experimental.dynamicIO` 标志已重命名为 `cacheComponents`：
+
+更新你的 Next 配置文件，删除 `dynamicIO` 标志。
+
+```js filename="next.config.js"
+// Next.js 15 - experimental.dynamicIO 现已删除
+module.exports = {
+  experimental: {
+    dynamicIO: true,
+  },
+}
+```
+
+添加设置为 true 的 [`cacheComponents`](/docs/app/api-reference/config/next-config-js/cacheComponents) 标志。
+
+```js filename="next.config.js"
+// Next.js 16 - 请改用 cacheComponents
+module.exports = {
+  cacheComponents: true,
+}
+```
+
+### `unstable_rootParams`
+
+`unstable_rootParams` 函数已删除。我们正在开发一个替代 API，将在即将发布的小版本中提供。

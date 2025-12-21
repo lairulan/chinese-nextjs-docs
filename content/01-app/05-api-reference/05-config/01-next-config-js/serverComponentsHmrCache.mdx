@@ -1,0 +1,37 @@
+---
+title: serverComponentsHmrCache
+slug: /docs/app/api-reference/config/next-config-js/serverComponentsHmrCache
+description: 配置在服务器组件中是否在 HMR 刷新请求之间缓存 fetch 响应。
+version: experimental
+---
+
+实验性的 `serverComponentsHmrCache` 选项允许你在本地开发时，在热模块替换 (HMR) 刷新之间缓存服务器组件中的 `fetch` 响应。这可以提供更快的响应速度，并减少计费 API 调用的成本。
+
+默认情况下，HMR 缓存适用于所有 `fetch` 请求，包括那些带有 `cache: 'no-store'` 选项的请求。这意味着未缓存的请求在 HMR 刷新之间不会显示最新数据。不过，缓存会在导航或完整页面重新加载时被清除。
+
+你可以在 `next.config.js` 文件中将 `serverComponentsHmrCache` 设置为 `false` 来禁用 HMR 缓存：
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  experimental: {
+    serverComponentsHmrCache: false, // 默认为 true
+  },
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  experimental: {
+    serverComponentsHmrCache: false, // 默认为 true
+  },
+}
+
+module.exports = nextConfig
+```
+
+> **值得注意的是**：为了更好的可观察性，我们建议使用 [`logging.fetches`](/docs/app/api-reference/config/next-config-js/logging) 选项，它会在开发过程中在控制台记录 fetch 缓存命中和未命中的情况。

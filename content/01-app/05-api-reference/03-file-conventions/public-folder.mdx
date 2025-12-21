@@ -1,0 +1,46 @@
+---
+title: public Folder
+nav_title: public
+description: Next.js 允许你在 public 目录中提供静态文件，比如图片。你可以在这里了解它是如何工作的。
+slug: /docs/app/api-reference/file-conventions/public-folder
+---
+
+{/* 本文档的内容在 app 和 pages 路由之间共享。你可以使用 `<PagesOnly>Content</PagesOnly>` 组件来添加特定于 Pages 路由的内容。任何共享内容都不应该被包装在组件中。 */}
+
+Next.js 可以在根目录下的 `public` 文件夹中提供静态文件，比如图片。`public` 中的文件可以从基本 URL（`/`）开始被你的代码引用。
+
+例如，文件 `public/avatars/me.png` 可以通过访问 `/avatars/me.png` 路径查看。显示该图片的代码可能如下所示：
+
+```jsx filename="avatar.js"
+import Image from 'next/image'
+
+export function Avatar({ id, alt }) {
+  return <Image src={`/avatars/${id}.png`} alt={alt} width="64" height="64" />
+}
+
+export function AvatarOfMe() {
+  return <Avatar id="me" alt="A portrait of me" />
+}
+```
+
+## 缓存
+
+Next.js 不能安全地缓存 `public` 文件夹中的资源，因为它们可能会发生变化。应用的默认缓存头是：
+
+```jsx
+Cache-Control: public, max-age=0
+```
+
+## Robots、Favicons 和其他
+
+<PagesOnly>
+
+该文件夹对于 `robots.txt`、`favicon.ico`、Google 站点验证和任何其他静态文件（包括 `.html`）也很有用。但是请确保没有与 `pages/` 目录中的文件同名的静态文件，因为这将导致错误。[阅读更多](/docs/messages/conflicting-public-file-page)。
+
+</PagesOnly>
+
+<AppOnly>
+
+对于静态元数据文件，如 `robots.txt`、`favicon.ico` 等，你应该在 `app` 文件夹中使用[特殊的元数据文件](/docs/app/api-reference/file-conventions/metadata)。
+
+</AppOnly>

@@ -1,0 +1,22 @@
+---
+title: productionBrowserSourceMaps
+slug: /docs/app/api-reference/config/next-config-js/productionBrowserSourceMaps
+description: 在生产构建期间启用浏览器源映射生成。
+---
+
+{/* 此文档内容在应用和页面路由器之间共享。你可以使用 `<PagesOnly>Content</PagesOnly>` 组件添加特定于页面路由器的内容。任何共享内容不应包装在组件中。 */}
+
+源映射在开发过程中默认启用。在生产构建期间，为了防止客户端泄露源代码，它们默认是禁用的，除非你通过配置标志明确选择加入。
+
+Next.js 提供了一个配置标志，你可以在生产构建期间启用浏览器源映射生成：
+
+```js filename="next.config.js"
+module.exports = {
+  productionBrowserSourceMaps: true,
+};
+```
+
+当 `productionBrowserSourceMaps` 选项启用时，源映射将输出在与 JavaScript 文件相同的目录中。Next.js 会自动在请求时提供这些文件。
+
+- 添加源映射会增加 `next build` 时间
+- 增加 `next build` 期间的内存使用

@@ -1,0 +1,22 @@
+---
+title: expireTime
+slug: /docs/app/api-reference/config/next-config-js/expireTime
+description: 为启用 ISR 的页面自定义 stale-while-revalidate 过期时间。
+---
+
+{/* 此文档的内容在 app 路由和 pages 路由之间共享。你可以使用 `<PagesOnly>Content</PagesOnly>` 组件来添加仅适用于 Pages 路由的内容。任何共享内容都不应该被组件包裹。*/}
+
+你可以为启用 ISR 的页面指定一个自定义的 `stale-while-revalidate` 过期时间，供 CDN 在 `Cache-Control` header 中使用。
+
+打开 `next.config.js` 并添加 `expireTime` 配置：
+
+```js filename="next.config.js"
+module.exports = {
+  // 一小时的秒数
+  expireTime: 3600,
+}
+```
+
+现在在发送 `Cache-Control` header 时，过期时间将根据特定的重新验证周期进行计算。
+
+例如，如果某个路径的重新验证时间为 15 分钟，而过期时间设置为一小时，则生成的 `Cache-Control` header 将是 `s-maxage=900, stale-while-revalidate=2700`，这样它就可以在配置的过期时间减去 15 分钟的时间内保持陈旧状态。

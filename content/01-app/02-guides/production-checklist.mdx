@@ -1,0 +1,153 @@
+---
+title: 如何优化你的 Next.js 应用以用于生产环境
+nav_title: 生产环境
+description: 在将你的 Next.js 应用部署到生产环境之前，确保最佳性能和用户体验的建议。
+slug: /docs/app/guides/production-checklist
+---
+
+在将你的 Next.js 应用部署到生产环境之前，你应该考虑实施一些优化和模式，以获得最佳的用户体验、性能和安全性。
+
+本页面提供了最佳实践，你可以在[构建应用](#during-development)和[投入生产之前](#before-going-to-production)时作为参考，以及你应该了解的 [Next.js 自动优化](#automatic-optimizations)。
+
+## 自动优化
+
+这些 Next.js 优化默认启用，无需配置：
+
+<AppOnly>
+
+- **[Server Components](/docs/app/getting-started/server-and-client-components)：** Next.js 默认使用 Server Components。Server Components 在服务器上运行，不需要 JavaScript 在客户端渲染。因此，它们不会影响客户端 JavaScript bundle 的大小。然后你可以根据需要使用 [Client Components](/docs/app/getting-started/server-and-client-components) 来实现交互性。
+- **[代码拆分](/docs/app/getting-started/linking-and-navigating#how-navigation-works)：** Server Components 按路由段启用自动代码拆分。你也可以考虑在适当的情况下[懒加载](/docs/app/guides/lazy-loading) Client Components 和第三方库。
+- **[预取](/docs/app/getting-started/linking-and-navigating#prefetching)：** 当指向新路由的链接进入用户的视口时，Next.js 会在后台预取该路由。这使得导航到新路由几乎是即时的。你可以在适当的情况下选择退出预取。
+- **[静态渲染](/docs/app/guides/caching#static-rendering)：** Next.js 在构建时在服务器上静态渲染 Server 和 Client Components，并缓存渲染结果以提高应用的性能。你可以在适当的情况下选择使用[动态渲染](/docs/app/guides/caching#dynamic-rendering)来处理特定路由。{/* TODO: Update when PPR is stable */}
+- **[缓存](/docs/app/guides/caching)：** Next.js 缓存数据请求、Server 和 Client Components 的渲染结果、静态资源等，以减少对服务器、数据库和后端服务的网络请求数量。你可以在适当的情况下选择退出缓存。
+
+</AppOnly>
+
+<PagesOnly>
+
+- **[代码拆分](/docs/pages/building-your-application/routing/pages-and-layouts)：** Next.js 自动按页面拆分应用代码。这意味着在导航时只加载当前页面所需的代码。你也可以考虑在适当的情况下[懒加载](/docs/pages/guides/lazy-loading)第三方库。
+- **[预取](/docs/pages/api-reference/components/link#prefetch)：** 当指向新路由的链接进入用户的视口时，Next.js 会在后台预取该路由。这使得导航到新路由几乎是即时的。你可以在适当的情况下选择退出预取。
+- **[自动静态优化](/docs/pages/building-your-application/rendering/automatic-static-optimization)：** 如果页面没有阻塞数据需求，Next.js 会自动确定该页面是静态的（可以预渲染）。优化的页面可以被缓存，并从多个 CDN 位置提供给最终用户。你可以在适当的情况下选择使用[服务器端渲染](/docs/pages/building-your-application/data-fetching/get-server-side-props)。
+
+</PagesOnly>
+
+这些默认设置旨在提高应用的性能，并减少每次网络请求传输的成本和数据量。
+
+## 开发期间
+
+在构建应用时，我们建议使用以下功能来确保最佳性能和用户体验：
+
+### 路由和渲染
+
+<AppOnly>
+
+- **[Layouts](/docs/app/api-reference/file-conventions/layout)：** 使用 layouts 在页面之间共享 UI，并在导航时启用[部分渲染](/docs/app/getting-started/linking-and-navigating#client-side-transitions)。
+- **[`<Link>` 组件](/docs/app/api-reference/components/link)：** 使用 `<Link>` 组件进行[客户端导航和预取](/docs/app/getting-started/linking-and-navigating#how-navigation-works)。
+- **[错误处理](/docs/app/getting-started/error-handling)：** 通过创建自定义错误页面，优雅地处理生产环境中的[全局错误](/docs/app/getting-started/error-handling)和 [404 错误](/docs/app/api-reference/file-conventions/not-found)。
+- **[Client 和 Server Components](/docs/app/getting-started/server-and-client-components#examples)：** 遵循 Server 和 Client Components 的推荐组合模式，并检查你的 [`"use client"` 边界](/docs/app/getting-started/server-and-client-components#examples#moving-client-components-down-the-tree)的位置，以避免不必要地增加客户端 JavaScript bundle。
+- **[动态 API](/docs/app/guides/caching#dynamic-rendering)：** 注意像 [`cookies`](/docs/app/api-reference/functions/cookies) 和 [`searchParams`](/docs/app/api-reference/file-conventions/page#searchparams-optional) prop 这样的动态 API 会将整个路由选择进入[动态渲染](/docs/app/guides/caching#dynamic-rendering)（或者如果在 [Root Layout](/docs/app/api-reference/file-conventions/layout#root-layout) 中使用，则是整个应用）。确保动态 API 的使用是有意为之的，并在适当的情况下将它们包装在 `<Suspense>` 边界中。
+
+> **值得注意的是**：[部分预渲染（实验性）](/blog/next-14#partial-prerendering-preview)将允许路由的部分内容是动态的，而无需将整个路由选择进入动态渲染。
+
+</AppOnly>
+
+<PagesOnly>
+
+- **[`<Link>` 组件](/docs/pages/building-your-application/routing/linking-and-navigating)：** 使用 `<Link>` 组件进行客户端导航和预取。
+- **[自定义错误](/docs/pages/building-your-application/routing/custom-error)：** 优雅地处理 [500](/docs/pages/building-your-application/routing/custom-error#500-page) 和 [404 错误](/docs/pages/building-your-application/routing/custom-error#404-page)
+
+</PagesOnly>
+
+### 数据获取和缓存
+
+<AppOnly>
+
+- **[Server Components](/docs/app/getting-started/fetching-data)：** 利用使用 Server Components 在服务器上获取数据的优势。
+- **[Route Handlers](/docs/app/api-reference/file-conventions/route)：** 使用 Route Handlers 从 Client Components 访问你的后端资源。但不要从 Server Components 调用 Route Handlers，以避免额外的服务器请求。
+- **[流式传输](/docs/app/api-reference/file-conventions/loading)：** 使用 Loading UI 和 React Suspense 将 UI 从服务器逐步发送到客户端，并防止在获取数据时阻塞整个路由。
+- **[并行数据获取](/docs/app/getting-started/fetching-data#parallel-data-fetching)：** 在适当的情况下通过并行获取数据来减少网络瀑布流。同时，考虑在适当的情况下[预加载数据](/docs/app/getting-started/fetching-data#preloading-data)。
+- **[数据缓存](/docs/app/guides/caching#data-cache)：** 验证你的数据请求是否被缓存，并在适当的情况下选择使用缓存。确保不使用 `fetch` 的请求被[缓存](/docs/app/api-reference/functions/unstable_cache)。
+- **[静态图片](/docs/app/api-reference/file-conventions/public-folder)：** 使用 `public` 目录自动缓存应用的静态资源，例如图片。
+
+</AppOnly>
+
+<PagesOnly>
+
+- **[API Routes](/docs/pages/building-your-application/routing/api-routes)：** 使用 Route Handlers 访问你的后端资源，并防止敏感机密暴露给客户端。
+- **[数据缓存](/docs/pages/building-your-application/data-fetching/get-static-props)：** 验证你的数据请求是否被缓存，并在适当的情况下选择使用缓存。确保不使用 `getStaticProps` 的请求在适当的情况下被缓存。
+- **[增量静态再生成](/docs/pages/guides/incremental-static-regeneration)：** 使用增量静态再生成在构建后更新静态页面，而无需重新构建整个站点。
+- **[静态图片](/docs/pages/api-reference/file-conventions/public-folder)：** 使用 `public` 目录自动缓存应用的静态资源，例如图片。
+
+</PagesOnly>
+
+### UI 和可访问性
+
+<AppOnly>
+
+- **[表单和验证](/docs/app/guides/forms)：** 使用 Server Actions 处理表单提交、服务器端验证和错误处理。
+- **[全局错误 UI](/docs/app/api-reference/file-conventions/error#global-error)：** 添加 `app/global-error.tsx` 为应用中未捕获的错误提供一致的、可访问的后备 UI 和恢复机制。
+- **[全局 404](/docs/app/api-reference/file-conventions/not-found#global-not-foundjs-experimental)：** 添加 `app/global-not-found.tsx` 为应用中不匹配的路由提供可访问的 404 页面。
+
+</AppOnly>
+
+- **[Font Module](/docs/app/api-reference/components/font)：** 通过使用 Font Module 优化字体，它会自动将字体文件与其他静态资源一起托管，消除外部网络请求，并减少[布局偏移](https://web.dev/articles/cls)。
+- **[`<Image>` 组件](/docs/app/api-reference/components/image)：** 通过使用 Image 组件优化图片，它会自动优化图片，防止布局偏移，并以 WebP 等现代格式提供图片。
+- **[`<Script>` 组件](/docs/app/guides/scripts)：** 通过使用 Script 组件优化第三方脚本，它会自动延迟脚本并防止它们阻塞主线程。
+- **[ESLint](/docs/architecture/accessibility#linting)：** 使用内置的 `eslint-plugin-jsx-a11y` 插件来尽早发现可访问性问题。
+
+### 安全性
+
+<AppOnly>
+
+- **[污染](/docs/app/api-reference/config/next-config-js/taint)：** 通过污染数据对象和/或特定值来防止敏感数据暴露给客户端。
+- **[Server Actions](/docs/app/getting-started/updating-data)：** 确保用户有权调用 Server Actions。查看推荐的[安全实践](/blog/security-nextjs-server-components-actions)。
+
+</AppOnly>
+
+- **[环境变量](/docs/app/guides/environment-variables)：** 确保你的 `.env.*` 文件已添加到 `.gitignore`，并且只有公共变量以 `NEXT_PUBLIC_` 为前缀。
+- **[内容安全策略](/docs/app/guides/content-security-policy)：** 考虑添加内容安全策略来保护你的应用免受各种安全威胁，如跨站脚本攻击、点击劫持和其他代码注入攻击。
+
+### 元数据和 SEO
+
+<AppOnly>
+
+- **[Metadata API](/docs/app/getting-started/metadata-and-og-images)：** 使用 Metadata API 通过添加页面标题、描述等来改善应用的搜索引擎优化（SEO）。
+- **[Open Graph (OG) 图片](/docs/app/api-reference/file-conventions/metadata/opengraph-image)：** 创建 OG 图片以准备你的应用进行社交分享。
+- **[站点地图](/docs/app/api-reference/functions/generate-sitemaps)和 [Robots](/docs/app/api-reference/file-conventions/metadata/robots)：** 通过生成站点地图和 robots 文件来帮助搜索引擎抓取和索引你的页面。
+
+</AppOnly>
+
+<PagesOnly>
+
+- **[`<Head>` 组件](/docs/pages/api-reference/components/head)：** 使用 `next/head` 组件添加页面标题、描述等。
+
+</PagesOnly>
+
+### 类型安全
+
+- **TypeScript 和 [TS Plugin](/docs/app/api-reference/config/typescript)：** 使用 TypeScript 和 TypeScript 插件以获得更好的类型安全性，并帮助你尽早发现错误。
+
+## 投入生产之前
+
+在投入生产之前，你可以运行 `next build` 在本地构建应用并捕获任何构建错误，然后运行 `next start` 在类似生产环境中测量应用的性能。
+
+### Core Web Vitals
+
+- **[Lighthouse](https://developers.google.com/web/tools/lighthouse)：** 在无痕模式下运行 Lighthouse，以更好地了解用户将如何体验你的站点，并识别需要改进的领域。这是一个模拟测试，应该与查看现场数据（如 Core Web Vitals）配合使用。
+
+<AppOnly>
+
+- **[`useReportWebVitals` hook](/docs/app/api-reference/functions/use-report-web-vitals)：** 使用此 hook 将 [Core Web Vitals](https://web.dev/articles/vitals) 数据发送到分析工具。
+
+</AppOnly>
+
+### 分析 bundle
+
+使用 [`@next/bundle-analyzer` 插件](/docs/app/guides/package-bundling#analyzing-javascript-bundles)分析 JavaScript bundle 的大小，并识别可能影响应用性能的大型模块和依赖项。
+
+此外，以下工具可以帮助你了解向应用添加新依赖项的影响：
+
+- [Import Cost](https://marketplace.visualstudio.com/items?itemName=wix.vscode-import-cost)
+- [Package Phobia](https://packagephobia.com/)
+- [Bundle Phobia](https://bundlephobia.com/)
+- [bundlejs](https://bundlejs.com/)

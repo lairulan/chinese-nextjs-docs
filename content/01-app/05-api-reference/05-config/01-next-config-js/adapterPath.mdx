@@ -1,0 +1,366 @@
+---
+title: experimental.adapterPath
+description: 配置一个自定义适配器，让 Next.js 通过 modifyConfig 和 onBuildComplete 回调钩入构建过程。
+slug: /docs/app/api-reference/config/next-config-js/adapterPath
+---
+
+Next.js 提供了一个实验性 API，允许你创建自定义适配器来钩入构建过程。这对于需要修改 Next.js 配置或处理构建输出的部署平台或自定义构建集成非常有用。
+
+## 配置
+
+要使用适配器，请在 `experimental.adapterPath` 中指定你的适配器模块路径：
+
+```js filename="next.config.js"
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  experimental: {
+    adapterPath: require.resolve('./my-adapter.js'),
+  },
+}
+
+module.exports = nextConfig
+```
+
+## 创建适配器
+
+适配器是一个导出实现 `NextAdapter` 接口的对象的模块：
+
+```typescript
+export interface NextAdapter {
+  name: string
+  modifyConfig?: (
+    config: NextConfigComplete,
+    ctx: {
+      phase: PHASE_TYPE
+    }
+  ) => Promise<NextConfigComplete> | NextConfigComplete
+  onBuildComplete?: (ctx: {
+    routes: {
+      headers: Array<ManifestHeaderRoute>
+      redirects: Array<ManifestRedirectRoute>
+      rewrites: {
+        beforeFiles: Array<ManifestRewriteRoute>
+        afterFiles: Array<ManifestRewriteRoute>
+        fallback: Array<ManifestRewriteRoute>
+      }
+      dynamicRoutes: ReadonlyArray<ManifestRoute>
+    }
+    outputs: AdapterOutputs
+    projectDir: string
+    repoRoot: string
+    distDir: string
+    config: NextConfigComplete
+    nextVersion: string
+  }) => Promise<void> | void
+}
+```
+
+### 基本适配器结构
+
+这是一个最小化的适配器示例：
+
+```js filename="my-adapter.js"
+/** @type {import('next').NextAdapter} */
+const adapter = {
+  name: 'my-custom-adapter',
+
+  async modifyConfig(config, { phase }) {
+    // 根据构建阶段修改 Next.js 配置
+    if (phase === 'phase-production-build') {
+      return {
+        ...config,
+        // 添加你的修改
+      }
+    }
+    return config
+  },
+
+  async onBuildComplete({
+    routes,
+    outputs,
+    projectDir,
+    repoRoot,
+    distDir,
+    config,
+    nextVersion,
+  }) {
+    // 处理构建输出
+    console.log('Build completed with', outputs.pages.length, 'pages')
+
+    // 访问不同的输出类型
+    for (const page of outputs.pages) {
+      console.log('Page:', page.pathname, 'at', page.filePath)
+    }
+
+    for (const apiRoute of outputs.pagesApi) {
+      console.log('API Route:', apiRoute.pathname, 'at', apiRoute.filePath)
+    }
+
+    for (const appPage of outputs.appPages) {
+      console.log('App Page:', appPage.pathname, 'at', appPage.filePath)
+    }
+
+    for (const prerender of outputs.prerenders) {
+      console.log('Prerendered:', prerender.pathname)
+    }
+  },
+}
+
+module.exports = adapter
+```
+
+## API 参考
+
+### `modifyConfig(config, context)`
+
+为任何加载 next.config 的 CLI 命令调用，以允许修改配置。
+
+**参数：**
+
+- `config`：完整的 Next.js 配置对象
+- `context.phase`：当前构建阶段（参见 [phases](/docs/app/api-reference/config/next-config-js#phase)）
+
+**返回：**修改后的配置对象（可以是异步的）
+
+### `onBuildComplete(context)`
+
+在构建过程完成后调用，提供关于路由和输出的详细信息。
+
+**参数：**
+
+- `routes`：包含 headers、redirects、rewrites 和动态路由的路由清单对象
+  - `routes.headers`：header 路由对象数组，包含 `source`、`sourceRegex`、`headers`、`has`、`missing` 和可选的 `priority` 字段
+  - `routes.redirects`：redirect 路由对象数组，包含 `source`、`sourceRegex`、`destination`、`statusCode`、`has`、`missing` 和可选的 `priority` 字段
+  - `routes.rewrites`：包含 `beforeFiles`、`afterFiles` 和 `fallback` 数组的对象，每个数组包含 rewrite 路由对象，包含 `source`、`sourceRegex`、`destination`、`has` 和 `missing` 字段
+  - `routes.dynamicRoutes`：动态路由对象数组，包含 `source`、`sourceRegex`、`destination`、`has` 和 `missing` 字段
+- `outputs`：按类型组织的所有构建输出的详细信息
+- `projectDir`：Next.js 项目目录的绝对路径
+- `repoRoot`：检测到的仓库根目录的绝对路径
+- `distDir`：构建输出目录的绝对路径
+- `config`：最终的 Next.js 配置（已应用 `modifyConfig`）
+- `nextVersion`：正在使用的 Next.js 版本
+- `buildId`：当前构建的唯一标识符
+
+## 输出类型
+
+`outputs` 对象包含不同输出类型的数组：
+
+### Pages（`outputs.pages`）
+
+来自 `pages/` 目录的 React 页面：
+
+```typescript
+{
+  type: 'PAGES'
+  id: string           // 路由标识符
+  filePath: string     // 构建文件的路径
+  pathname: string     // URL 路径名
+  sourcePage: string   // pages/ 目录中的原始源文件路径
+  runtime: 'nodejs' | 'edge'
+  assets: Record<string, string>  // 追踪的依赖项（key：从仓库根目录的相对路径，value：绝对路径）
+  wasmAssets?: Record<string, string>  // 打包的 wasm 文件（key：名称，value：绝对路径）
+  config: {
+    maxDuration?: number
+    preferredRegion?: string | string[]
+    env?: Record<string, string>  // 环境变量（仅 edge runtime）
+  }
+}
+```
+
+### API Routes（`outputs.pagesApi`）
+
+来自 `pages/api/` 的 API 路由：
+
+```typescript
+{
+  type: 'PAGES_API'
+  id: string
+  filePath: string
+  pathname: string
+  sourcePage: string   // 原始相对源文件路径
+  runtime: 'nodejs' | 'edge'
+  assets: Record<string, string>
+  wasmAssets?: Record<string, string>
+  config: {
+    maxDuration?: number
+    preferredRegion?: string | string[]
+    env?: Record<string, string>
+  }
+}
+```
+
+### App Pages（`outputs.appPages`）
+
+来自 `app/` 目录中带有 `page.{js,ts,jsx,tsx}` 的 React 页面：
+
+```typescript
+{
+  type: 'APP_PAGE'
+  id: string
+  filePath: string
+  pathname: string     // RSC 路由包含 .rsc 后缀
+  sourcePage: string   // 原始相对源文件路径
+  runtime: 'nodejs' | 'edge'
+  assets: Record<string, string>
+  wasmAssets?: Record<string, string>
+  config: {
+    maxDuration?: number
+    preferredRegion?: string | string[]
+    env?: Record<string, string>
+  }
+}
+```
+
+### App Routes（`outputs.appRoutes`）
+
+来自 `app/` 中带有 `route.{js,ts,jsx,tsx}` 的 API 和元数据路由：
+
+```typescript
+{
+  type: 'APP_ROUTE'
+  id: string
+  filePath: string
+  pathname: string
+  sourcePage: string
+  runtime: 'nodejs' | 'edge'
+  assets: Record<string, string>
+  wasmAssets?: Record<string, string>
+  config: {
+    maxDuration?: number
+    preferredRegion?: string | string[]
+    env?: Record<string, string>
+  }
+}
+```
+
+### Prerenders（`outputs.prerenders`）
+
+启用 ISR 的路由和静态预渲染：
+
+```typescript
+{
+  type: 'PRERENDER'
+  id: string
+  pathname: string
+  parentOutputId: string  // 源页面/路由的 ID
+  groupId: number        // 重新验证组标识符（具有相同 groupId 的预渲染一起重新验证）
+  pprChain?: {
+    headers: Record<string, string>  // PPR 链 headers（例如，'x-nextjs-resume': '1'）
+  }
+  parentFallbackMode?: 'blocking' | false | null  // 来自 getStaticPaths 的 fallback 模式
+  fallback?: {
+    filePath: string
+    initialStatus?: number
+    initialHeaders?: Record<string, string | string[]>
+    initialExpiration?: number
+    initialRevalidate?: number
+    postponedState?: string  // PPR 延迟状态
+  }
+  config: {
+    allowQuery?: string[]     // 允许的查询参数
+    allowHeader?: string[]    // ISR 允许的 headers
+    bypassFor?: RouteHas[]    // 缓存绕过条件
+    renderingMode?: RenderingMode
+    bypassToken?: string
+  }
+}
+```
+
+### Static Files（`outputs.staticFiles`）
+
+静态资源和自动静态优化的页面：
+
+```typescript
+{
+  type: 'STATIC_FILE'
+  id: string
+  filePath: string
+  pathname: string
+}
+```
+
+### Middleware（`outputs.middleware`）
+
+Middleware 函数（如果存在）：
+
+```typescript
+{
+  type: 'MIDDLEWARE'
+  id: string
+  filePath: string
+  pathname: string      // 始终为 '/_middleware'
+  sourcePage: string    // 始终为 'middleware'
+  runtime: 'nodejs' | 'edge'
+  assets: Record<string, string>
+  wasmAssets?: Record<string, string>
+  config: {
+    maxDuration?: number
+    preferredRegion?: string | string[]
+    env?: Record<string, string>
+    matchers?: Array<{
+      source: string
+      sourceRegex: string
+      has: RouteHas[] | undefined
+      missing: RouteHas[] | undefined
+    }>
+  }
+}
+```
+
+## 路由信息
+
+`onBuildComplete` 中的 `routes` 对象提供完整的路由信息，包含已处理的模式，可用于部署：
+
+### Headers
+
+每个 header 路由包括：
+
+- `source`：原始路由模式（例如，`/about`）
+- `sourceRegex`：用于匹配请求的编译正则表达式
+- `headers`：要应用的 headers 键值对
+- `has`：必须满足的可选条件
+- `missing`：不得满足的可选条件
+- `priority`：内部路由的可选标志
+
+### Redirects
+
+每个 redirect 路由包括：
+
+- `source`：原始路由模式
+- `sourceRegex`：用于匹配的编译正则表达式
+- `destination`：目标 URL（可以包含捕获组）
+- `statusCode`：HTTP 状态码（301、302、307、308）
+- `has`：可选的正向条件
+- `missing`：可选的负向条件
+- `priority`：内部路由的可选标志
+
+### Rewrites
+
+Rewrites 分为三个阶段：
+
+- `beforeFiles`：在文件系统之前检查（包括页面和 public 文件）
+- `afterFiles`：在页面/public 文件之后但在动态路由之前检查
+- `fallback`：在所有其他路由之后检查
+
+每个 rewrite 包括 `source`、`sourceRegex`、`destination`、`has` 和 `missing`。
+
+### Dynamic Routes
+
+从动态路由段生成（例如，`[slug]`、`[...path]`）。每个包括：
+
+- `source`：路由模式
+- `sourceRegex`：带有命名捕获组的编译正则表达式
+- `destination`：带有参数替换的内部目标
+- `has`：可选的正向条件
+- `missing`：可选的负向条件
+
+## 用例
+
+适配器的常见用例包括：
+
+- **部署平台集成**：自动为特定托管平台配置构建输出
+- **资源处理**：转换或优化构建输出
+- **监控集成**：收集构建指标和路由信息
+- **自定义打包**：以特定平台格式打包输出
+- **构建验证**：确保输出满足特定要求
+- **路由生成**：使用已处理的路由信息生成特定平台的路由配置

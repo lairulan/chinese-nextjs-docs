@@ -1,0 +1,202 @@
+---
+title: getStaticProps
+description: 使用 `getStaticProps` 获取数据并生成静态页面。了解更多关于 Next.js 中此数据获取 API 的信息。
+slug: /docs/pages/building-your-application/data-fetching/get-static-props
+---
+
+如果你从页面导出一个名为 `getStaticProps`（静态站点生成）的函数，Next.js 将在构建时使用 `getStaticProps` 返回的 props 预渲染此页面。
+
+```tsx filename="pages/index.tsx" switcher
+import type { InferGetStaticPropsType, GetStaticProps } from 'next'
+
+type Repo = {
+  name: string
+  stargazers_count: number
+}
+
+export const getStaticProps = (async (context) => {
+  const res = await fetch('https://api.github.com/repos/vercel/next.js')
+  const repo = await res.json()
+  return { props: { repo } }
+}) satisfies GetStaticProps<{
+  repo: Repo
+}>
+
+export default function Page({
+  repo,
+}: InferGetStaticPropsType<typeof getStaticProps>) {
+  return repo.stargazers_count
+}
+```
+
+```jsx filename="pages/index.js" switcher
+export async function getStaticProps() {
+  const res = await fetch('https://api.github.com/repos/vercel/next.js')
+  const repo = await res.json()
+  return { props: { repo } }
+}
+
+export default function Page({ repo }) {
+  return repo.stargazers_count
+}
+```
+
+> 请注意，无论渲染类型如何，任何 `props` 都将传递给页面组件，并且可以在初始 HTML 中的客户端查看。这是为了允许页面正确地[水合](https://react.dev/reference/react-dom/hydrate)。确保你不要在 `props` 中传递任何不应在客户端可用的敏感信息。
+
+[`getStaticProps` API 参考](/docs/pages/api-reference/functions/get-static-props)涵盖了可与 `getStaticProps` 一起使用的所有参数和 props。
+
+## 我应该何时使用 getStaticProps？
+
+如果满足以下条件，你应该使用 `getStaticProps`：
+
+- 渲染页面所需的数据在用户请求之前的构建时就已可用
+- 数据来自 headless CMS
+- 页面必须预渲染（用于 SEO）并且速度非常快 —— `getStaticProps` 生成 `HTML` 和 `JSON` 文件，这两者都可以被 CDN 缓存以提高性能
+- 数据可以公开缓存（非用户特定）。在某些特定情况下，可以通过使用 Proxy 重写路径来绕过此条件。
+
+## getStaticProps 何时运行
+
+`getStaticProps` 始终在服务器上运行，永远不会在客户端运行。你可以使用[此工具](https://next-code-elimination.vercel.app/)验证 `getStaticProps` 中编写的代码是否已从客户端包中删除。
+
+- `getStaticProps` 始终在 `next build` 期间运行
+- 当使用 [`fallback: true`](/docs/pages/api-reference/functions/get-static-paths#fallback-true) 时，`getStaticProps` 在后台运行
+- 当使用 [`fallback: blocking`](/docs/pages/api-reference/functions/get-static-paths#fallback-blocking) 时，在初始渲染之前调用 `getStaticProps`
+- 当使用 `revalidate` 时，`getStaticProps` 在后台运行
+- 当使用 [`revalidate()`](/docs/pages/guides/incremental-static-regeneration#on-demand-revalidation-with-revalidatepath) 时，`getStaticProps` 在后台按需运行
+
+与[增量静态再生](/docs/pages/guides/incremental-static-regeneration)结合使用时，`getStaticProps` 将在后台运行，同时重新验证旧页面，并将新页面提供给浏览器。
+
+`getStaticProps` 无法访问传入的请求（例如查询参数或 HTTP 标头），因为它生成静态 HTML。如果你需要访问页面的请求，请考虑在 `getStaticProps` 之外使用 [Proxy](/docs/pages/api-reference/file-conventions/proxy)。
+
+## 使用 getStaticProps 从 CMS 获取数据
+
+以下示例展示了如何从 CMS 获取博客文章列表。
+
+```tsx filename="pages/blog.tsx" switcher
+// posts 将在构建时由 getStaticProps() 填充
+export default function Blog({ posts }) {
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+
+// 此函数在构建时在服务器端调用。
+// 它不会在客户端调用，所以你甚至可以直接
+// 进行数据库查询。
+export async function getStaticProps() {
+  // 调用外部 API 端点以获取文章。
+  // 你可以使用任何数据获取库
+  const res = await fetch('https://.../posts')
+  const posts = await res.json()
+
+  // 通过返回 { props: { posts } }，Blog 组件
+  // 将在构建时接收 `posts` 作为 prop
+  return {
+    props: {
+      posts,
+    },
+  }
+}
+```
+
+```jsx filename="pages/blog.js" switcher
+// posts 将在构建时由 getStaticProps() 填充
+export default function Blog({ posts }) {
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+
+// 此函数在构建时在服务器端调用。
+// 它不会在客户端调用，所以你甚至可以直接
+// 进行数据库查询。
+export async function getStaticProps() {
+  // 调用外部 API 端点以获取文章。
+  // 你可以使用任何数据获取库
+  const res = await fetch('https://.../posts')
+  const posts = await res.json()
+
+  // 通过返回 { props: { posts } }，Blog 组件
+  // 将在构建时接收 `posts` 作为 prop
+  return {
+    props: {
+      posts,
+    },
+  }
+}
+```
+
+[`getStaticProps` API 参考](/docs/pages/api-reference/functions/get-static-props)涵盖了可与 `getStaticProps` 一起使用的所有参数和 props。
+
+## 直接编写服务器端代码
+
+由于 `getStaticProps` 仅在服务器端运行，它永远不会在客户端运行。它甚至不会包含在浏览器的 JS 包中，因此你可以编写直接的数据库查询，而不会将它们发送到浏览器。
+
+这意味着，你可以直接在 `getStaticProps` 中编写服务器端代码，而不是从 `getStaticProps` 获取一个 **API 路由**（该路由本身从外部源获取数据）。
+
+以下面的例子为例。一个 API 路由用于从 CMS 获取一些数据。然后从 `getStaticProps` 直接调用该 API 路由。这会产生额外的调用，降低性能。相反，可以通过使用 `lib/` 目录共享从 CMS 获取数据的逻辑。然后它可以与 `getStaticProps` 共享。
+
+```js filename="lib/load-posts.js"
+// 以下函数与 getStaticProps 和 API 路由
+// 从 `lib/` 目录共享
+export async function loadPosts() {
+  // 调用外部 API 端点以获取文章
+  const res = await fetch('https://.../posts/')
+  const data = await res.json()
+
+  return data
+}
+```
+
+```jsx filename="pages/blog.js"
+// pages/blog.js
+import { loadPosts } from '../lib/load-posts'
+
+// 此函数仅在服务器端运行
+export async function getStaticProps() {
+  // 你可以直接在 `getStaticProps` 中调用相同的
+  // 函数，而不是获取你的 `/api` 路由
+  const posts = await loadPosts()
+
+  // 返回的 Props 将传递给页面组件
+  return { props: { posts } }
+}
+```
+
+或者，如果你**没有**使用 API 路由来获取数据，那么可以直接在 `getStaticProps` 中使用 [`fetch()`](https://developer.mozilla.org/docs/Web/API/Fetch_API) API 来获取数据。
+
+要验证 Next.js 从客户端包中删除了什么，你可以使用 [next-code-elimination 工具](https://next-code-elimination.vercel.app/)。
+
+## 静态生成 HTML 和 JSON
+
+当带有 `getStaticProps` 的页面在构建时预渲染时，除了页面 HTML 文件外，Next.js 还会生成一个 JSON 文件，其中包含运行 `getStaticProps` 的结果。
+
+此 JSON 文件将通过 [`next/link`](/docs/pages/api-reference/components/link) 或 [`next/router`](/docs/pages/api-reference/functions/use-router) 用于客户端路由。当你导航到使用 `getStaticProps` 预渲染的页面时，Next.js 会获取此 JSON 文件（在构建时预先计算），并将其用作页面组件的 props。这意味着客户端页面转换**不会**调用 `getStaticProps`，因为只使用导出的 JSON。
+
+使用增量静态生成时，`getStaticProps` 将在后台执行，以生成客户端导航所需的 JSON。你可能会看到对同一页面发出多个请求，但这是预期的，不会影响最终用户的性能。
+
+## 我可以在哪里使用 getStaticProps
+
+`getStaticProps` 只能从**页面**导出。你**不能**从非页面文件、`_app`、`_document` 或 `_error` 导出它。
+
+此限制的原因之一是 React 需要在页面渲染之前拥有所有必需的数据。
+
+此外，你必须将 `getStaticProps` 作为独立函数导出 —— 如果你将 `getStaticProps` 添加为页面组件的属性，它将**不会**工作。
+
+> **值得注意的是**：如果你创建了[自定义 app](/docs/pages/building-your-application/routing/custom-app)，请确保按照链接文档中所示将 `pageProps` 传递给页面组件，否则 props 将为空。
+
+## 在开发环境中每次请求都运行
+
+在开发环境中（`next dev`），`getStaticProps` 将在每次请求时被调用。
+
+## 预览模式
+
+你可以使用[**预览模式**](/docs/pages/guides/preview-mode)临时绕过静态生成，并在**请求时**而不是构建时渲染页面。例如，你可能正在使用 headless CMS，并希望在发布之前预览草稿。

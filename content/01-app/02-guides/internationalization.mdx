@@ -1,0 +1,220 @@
+---
+title: 国际化
+description: 通过国际化路由和本地化内容添加多语言支持。
+slug: /docs/app/guides/internationalization
+---
+
+Next.js 使你能够配置路由和内容渲染以支持多种语言。让你的网站适应不同的语言环境包括翻译内容（本地化）和国际化路由。
+
+## 术语
+
+- **Locale（语言环境）：** 一组语言和格式偏好的标识符。这通常包括用户的首选语言，也可能包括他们的地理区域。
+  - `en-US`：美国英语
+  - `nl-NL`：荷兰荷兰语
+  - `nl`：荷兰语，无特定区域
+
+## 路由概述
+
+建议使用浏览器中的用户语言偏好来选择要使用的语言环境。更改你的首选语言将修改传入应用程序的 `Accept-Language` 请求头。
+
+例如，使用以下库，你可以查看传入的 `Request` 来确定要选择哪个语言环境，基于 `Headers`、你计划支持的语言环境以及默认语言环境。
+
+```js filename="proxy.js"
+import { match } from '@formatjs/intl-localematcher'
+import Negotiator from 'negotiator'
+
+let headers = { 'accept-language': 'en-US,en;q=0.5' }
+let languages = new Negotiator({ headers }).languages()
+let locales = ['en-US', 'nl-NL', 'nl']
+let defaultLocale = 'en-US'
+
+match(languages, locales, defaultLocale) // -> 'en-US'
+```
+
+路由可以通过子路径（`/fr/products`）或域名（`my-site.fr/products`）进行国际化。有了这些信息，你现在可以在 [Proxy](/docs/app/api-reference/file-conventions/proxy) 中根据语言环境重定向用户。
+
+```js filename="proxy.js"
+import { NextResponse } from "next/server";
+
+let locales = ['en-US', 'nl-NL', 'nl']
+
+// 获取首选语言环境，类似于上面的方法或使用库
+function getLocale(request) { ... }
+
+export function proxy(request) {
+  // 检查路径名中是否有任何支持的语言环境
+  const { pathname } = request.nextUrl
+  const pathnameHasLocale = locales.some(
+    (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
+  )
+
+  if (pathnameHasLocale) return
+
+  // 如果没有语言环境则重定向
+  const locale = getLocale(request)
+  request.nextUrl.pathname = `/${locale}${pathname}`
+  // 例如：传入请求是 /products
+  // 新的 URL 现在是 /en-US/products
+  return NextResponse.redirect(request.nextUrl)
+}
+
+export const config = {
+  matcher: [
+    // 跳过所有内部路径（_next）
+    '/((?!_next).*)',
+    // 可选：仅在根路径（/）URL 上运行
+    // '/'
+  ],
+}
+```
+
+最后，确保 `app/` 内的所有特殊文件都嵌套在 `app/[lang]` 下。这使 Next.js 路由器能够动态处理路由中的不同语言环境，并将 `lang` 参数转发到每个 layout 和 page。例如：
+
+```tsx filename="app/[lang]/page.tsx" switcher
+// 你现在可以访问当前语言环境
+// 例如：/en-US/products -> `lang` 是 "en-US"
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ lang: string }>
+}) {
+  const { lang } = await params
+  return ...
+}
+```
+
+```jsx filename="app/[lang]/page.js" switcher
+// 你现在可以访问当前语言环境
+// 例如：/en-US/products -> `lang` 是 "en-US"
+export default async function Page({ params }) {
+  const { lang } = await params
+  return ...
+}
+```
+
+根 layout 也可以嵌套在新文件夹中（例如 `app/[lang]/layout.js`）。
+
+## 本地化
+
+根据用户的首选语言环境更改显示的内容，即本地化，并不是 Next.js 特有的功能。下面描述的模式适用于任何 Web 应用程序。
+
+假设我们想在应用程序中支持英语和荷兰语内容。我们可以维护两个不同的"字典"，这些对象为我们提供从某个键到本地化字符串的映射。例如：
+
+```json filename="dictionaries/en.json"
+{
+  "products": {
+    "cart": "Add to Cart"
+  }
+}
+```
+
+```json filename="dictionaries/nl.json"
+{
+  "products": {
+    "cart": "Toevoegen aan Winkelwagen"
+  }
+}
+```
+
+然后我们可以创建一个 `getDictionary` 函数来加载请求的语言环境的翻译：
+
+```ts filename="app/[lang]/dictionaries.ts" switcher
+import 'server-only'
+
+const dictionaries = {
+  en: () => import('./dictionaries/en.json').then((module) => module.default),
+  nl: () => import('./dictionaries/nl.json').then((module) => module.default),
+}
+
+export const getDictionary = async (locale: 'en' | 'nl') =>
+  dictionaries[locale]()
+```
+
+```js filename="app/[lang]/dictionaries.js" switcher
+import 'server-only'
+
+const dictionaries = {
+  en: () => import('./dictionaries/en.json').then((module) => module.default),
+  nl: () => import('./dictionaries/nl.json').then((module) => module.default),
+}
+
+export const getDictionary = async (locale) => dictionaries[locale]()
+```
+
+给定当前选择的语言，我们可以在 layout 或 page 中获取字典。
+
+```tsx filename="app/[lang]/page.tsx" switcher
+import { getDictionary } from './dictionaries'
+
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ lang: 'en' | 'nl' }>
+}) {
+  const { lang } = await params
+  const dict = await getDictionary(lang) // en
+  return <button>{dict.products.cart}</button> // Add to Cart
+}
+```
+
+```jsx filename="app/[lang]/page.js" switcher
+import { getDictionary } from './dictionaries'
+
+export default async function Page({ params }) {
+  const { lang } = await params
+  const dict = await getDictionary(lang) // en
+  return <button>{dict.products.cart}</button> // Add to Cart
+}
+```
+
+因为 `app/` 目录中的所有 layout 和 page 默认为 [Server Components](/docs/app/getting-started/server-and-client-components)，所以我们不需要担心翻译文件的大小会影响客户端 JavaScript bundle 大小。这段代码将**仅在服务器上运行**，并且只有生成的 HTML 会发送到浏览器。
+
+## 静态渲染
+
+要为给定的语言环境集生成静态路由，我们可以在任何 page 或 layout 中使用 `generateStaticParams`。这可以是全局的，例如在根 layout 中：
+
+```tsx filename="app/[lang]/layout.tsx" switcher
+export async function generateStaticParams() {
+  return [{ lang: 'en-US' }, { lang: 'de' }]
+}
+
+export default async function RootLayout({
+  children,
+  params,
+}: Readonly<{
+  children: React.ReactNode
+  params: Promise<{ lang: 'en-US' | 'de' }>
+}>) {
+  return (
+    <html lang={(await params).lang}>
+      <body>{children}</body>
+    </html>
+  )
+}
+```
+
+```jsx filename="app/[lang]/layout.js" switcher
+export async function generateStaticParams() {
+  return [{ lang: 'en-US' }, { lang: 'de' }]
+}
+
+export default async function RootLayout({ children, params }) {
+  return (
+    <html lang={(await params).lang}>
+      <body>{children}</body>
+    </html>
+  )
+}
+```
+
+## 资源
+
+- [Minimal i18n routing and translations](https://github.com/vercel/next.js/tree/canary/examples/i18n-routing)
+- [`next-intl`](https://next-intl.dev)
+- [`next-international`](https://github.com/QuiiBz/next-international)
+- [`next-i18n-router`](https://github.com/i18nexus/next-i18n-router)
+- [`paraglide-next`](https://inlang.com/m/osslbuzt/paraglide-next-i18n)
+- [`lingui`](https://lingui.dev)
+- [`tolgee`](https://tolgee.io/apps-integrations/next)
+- [`next-intlayer`](https://intlayer.org/doc/environment/nextjs)
+- [`gt-next`](https://generaltranslation.com/en/docs/next)

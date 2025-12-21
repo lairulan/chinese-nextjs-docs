@@ -1,0 +1,173 @@
+---
+title: useSelectedLayoutSegment
+description: useSelectedLayoutSegment hook 的 API 参考。
+slug: /docs/app/api-reference/functions/use-selected-layout-segment
+---
+
+`useSelectedLayoutSegment` 是一个**客户端组件** hook，它允许你读取从调用它的 Layout **向下一级**的活动路由段。
+
+它对于导航 UI 非常有用，例如父布局内的选项卡根据活动的子段改变样式。
+
+```tsx filename="app/example-client-component.tsx" switcher
+'use client'
+
+import { useSelectedLayoutSegment } from 'next/navigation'
+
+export default function ExampleClientComponent() {
+  const segment = useSelectedLayoutSegment()
+
+  return <p>Active segment: {segment}</p>
+}
+```
+
+```jsx filename="app/example-client-component.js" switcher
+'use client'
+
+import { useSelectedLayoutSegment } from 'next/navigation'
+
+export default function ExampleClientComponent() {
+  const segment = useSelectedLayoutSegment()
+
+  return <p>Active segment: {segment}</p>
+}
+```
+
+> **值得注意的是**：
+>
+> - 由于 `useSelectedLayoutSegment` 是一个[客户端组件](/docs/app/getting-started/server-and-client-components) hook，而 Layouts 默认是[服务器组件](/docs/app/getting-started/server-and-client-components)，因此 `useSelectedLayoutSegment` 通常通过导入到 Layout 中的客户端组件来调用。
+> - `useSelectedLayoutSegment` 只返回向下一级的段。要返回所有活动段，请参阅 [`useSelectedLayoutSegments`](/docs/app/api-reference/functions/use-selected-layout-segments)
+
+## 参数
+
+```tsx
+const segment = useSelectedLayoutSegment(parallelRoutesKey?: string)
+```
+
+`useSelectedLayoutSegment` _可选地_接受一个 [`parallelRoutesKey`](/docs/app/api-reference/file-conventions/parallel-routes#with-useselectedlayoutsegments)，允许你读取该插槽内的活动路由段。
+
+## 返回值
+
+`useSelectedLayoutSegment` 返回活动段的字符串，如果不存在则返回 `null`。
+
+例如，给定以下 Layouts 和 URLs，返回的段将是：
+
+| Layout                    | Visited URL                    | Returned Segment |
+| ------------------------- | ------------------------------ | ---------------- |
+| `app/layout.js`           | `/`                            | `null`           |
+| `app/layout.js`           | `/dashboard`                   | `'dashboard'`    |
+| `app/dashboard/layout.js` | `/dashboard`                   | `null`           |
+| `app/dashboard/layout.js` | `/dashboard/settings`          | `'settings'`     |
+| `app/dashboard/layout.js` | `/dashboard/analytics`         | `'analytics'`    |
+| `app/dashboard/layout.js` | `/dashboard/analytics/monthly` | `'analytics'`    |
+
+## 示例
+
+### 创建活动链接组件
+
+你可以使用 `useSelectedLayoutSegment` 创建一个活动链接组件，根据活动段改变样式。例如，博客侧边栏中的精选文章列表：
+
+```tsx filename="app/blog/blog-nav-link.tsx" switcher
+'use client'
+
+import Link from 'next/link'
+import { useSelectedLayoutSegment } from 'next/navigation'
+
+// 这个*客户端*组件将被导入到博客布局中
+export default function BlogNavLink({
+  slug,
+  children,
+}: {
+  slug: string
+  children: React.ReactNode
+}) {
+  // 导航到 `/blog/hello-world` 将为选中的布局段
+  // 返回 'hello-world'
+  const segment = useSelectedLayoutSegment()
+  const isActive = slug === segment
+
+  return (
+    <Link
+      href={`/blog/${slug}`}
+      // 根据链接是否活动来改变样式
+      style={{ fontWeight: isActive ? 'bold' : 'normal' }}
+    >
+      {children}
+    </Link>
+  )
+}
+```
+
+```jsx filename="app/blog/blog-nav-link.js" switcher
+'use client'
+
+import Link from 'next/link'
+import { useSelectedLayoutSegment } from 'next/navigation'
+
+// 这个*客户端*组件将被导入到博客布局中
+export default function BlogNavLink({ slug, children }) {
+  // 导航到 `/blog/hello-world` 将为选中的布局段
+  // 返回 'hello-world'
+  const segment = useSelectedLayoutSegment()
+  const isActive = slug === segment
+
+  return (
+    <Link
+      href={`/blog/${slug}`}
+      // 根据链接是否活动来改变样式
+      style={{ fontWeight: isActive ? 'bold' : 'normal' }}
+    >
+      {children}
+    </Link>
+  )
+}
+```
+
+```tsx filename="app/blog/layout.tsx" switcher
+// 将客户端组件导入到父布局（服务器组件）中
+import { BlogNavLink } from './blog-nav-link'
+import getFeaturedPosts from './get-featured-posts'
+
+export default async function Layout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const featuredPosts = await getFeaturedPosts()
+  return (
+    <div>
+      {featuredPosts.map((post) => (
+        <div key={post.id}>
+          <BlogNavLink slug={post.slug}>{post.title}</BlogNavLink>
+        </div>
+      ))}
+      <div>{children}</div>
+    </div>
+  )
+}
+```
+
+```jsx filename="app/blog/layout.js" switcher
+// 将客户端组件导入到父布局（服务器组件）中
+import { BlogNavLink } from './blog-nav-link'
+import getFeaturedPosts from './get-featured-posts'
+
+export default async function Layout({ children }) {
+  const featuredPosts = await getFeaturedPosts()
+  return (
+    <div>
+      {featuredPosts.map((post) => (
+        <div key={post.id}>
+          <BlogNavLink slug={post.slug}>{post.title}</BlogNavLink>
+        </div>
+      ))}
+      <div>{children}</div>
+    </div>
+  )
+}
+```
+
+## 版本历史
+
+| Version   | Changes                          |
+| --------- | -------------------------------- |
+| `v13.0.0` | 引入 `useSelectedLayoutSegment`。 |

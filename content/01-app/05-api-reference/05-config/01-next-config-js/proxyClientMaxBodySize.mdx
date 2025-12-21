@@ -1,0 +1,119 @@
+---
+title: proxyClientMaxBodySize
+description: 配置使用 proxy 时的最大请求体大小。
+version: experimental
+slug: /docs/app/api-reference/config/next-config-js/proxyClientMaxBodySize
+---
+
+当使用 proxy 时,Next.js 会自动克隆请求体并将其缓冲在内存中,以便在 proxy 和底层路由处理器中进行多次读取。为了防止过度的内存使用,此配置选项为缓冲的请求体设置了大小限制。
+
+默认情况下,最大请求体大小为 **10MB**。如果请求体超过此限制,请求体将仅缓冲到限制大小,并会记录一条警告日志,指示哪个路由超过了限制。
+
+## 选项
+
+### 字符串格式(推荐)
+
+使用易读的字符串格式指定大小:
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  experimental: {
+    proxyClientMaxBodySize: '1mb',
+  },
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  experimental: {
+    proxyClientMaxBodySize: '1mb',
+  },
+}
+
+module.exports = nextConfig
+```
+
+支持的单位:`b`、`kb`、`mb`、`gb`
+
+### 数字格式
+
+或者,以字节数的形式指定大小:
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  experimental: {
+    proxyClientMaxBodySize: 1048576, // 1MB(字节)
+  },
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  experimental: {
+    proxyClientMaxBodySize: 1048576, // 1MB(字节)
+  },
+}
+
+module.exports = nextConfig
+```
+
+## 行为
+
+当请求体超过配置的限制时:
+
+1. Next.js 将仅缓冲前 N 个字节(直到限制大小)
+2. 控制台会记录一条警告日志,指示超过限制的路由
+3. 请求将继续正常处理,但只有部分请求体可用
+4. 请求**不会**失败或向客户端返回错误
+
+如果你的应用需要处理完整的请求体,你应该:
+
+- 增加 `proxyClientMaxBodySize` 限制
+- 在应用逻辑中优雅地处理部分请求体
+
+## 示例
+
+```ts filename="proxy.ts"
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function proxy(request: NextRequest) {
+  // Next.js 会自动使用配置的大小限制缓冲请求体
+  // 你可以在 proxy 中读取请求体...
+  const body = await request.text()
+
+  // 如果请求体超过限制,只有部分数据可用
+  console.log('Body size:', body.length)
+
+  return NextResponse.next()
+}
+```
+
+```ts filename="app/api/upload/route.ts"
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function POST(request: NextRequest) {
+  // ...并且请求体在路由处理器中仍然可用
+  const body = await request.text()
+
+  console.log('Body in route handler:', body.length)
+
+  return NextResponse.json({ received: body.length })
+}
+```
+
+## 值得注意的是
+
+- 此设置仅在应用中使用 proxy 时适用
+- 默认的 10MB 限制旨在平衡内存使用和典型使用场景
+- 限制是针对每个请求的,而不是所有并发请求的全局限制
+- 对于处理大文件上传的应用,请考虑相应地增加限制

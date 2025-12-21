@@ -1,0 +1,60 @@
+---
+title: devIndicators
+description: 配置选项，用于在开发过程中显示屏幕上的指示器，提供当前查看路由的上下文信息。
+slug: /docs/app/api-reference/config/next-config-js/devIndicators
+---
+
+`devIndicators` 允许你配置屏幕上的指示器，在开发过程中提供当前查看路由的上下文信息。
+
+```ts filename="Types"
+  devIndicators: false | {
+    position?: 'bottom-right'
+    | 'bottom-left'
+    | 'top-right'
+    | 'top-left', // 默认为 'bottom-left'，
+  },
+```
+
+将 `devIndicators` 设置为 `false` 将隐藏指示器，但 Next.js 仍会显示遇到的任何构建或运行时错误。
+
+## 故障排除
+
+### 指示器未将路由标记为静态
+
+如果你期望路由是静态的，但指示器将其标记为动态，则该路由可能已选择退出静态渲染。
+
+你可以通过使用 `next build --debug` 构建应用程序来确认路由是[静态](/docs/app/guides/caching#static-rendering)还是[动态](/docs/app/guides/caching#dynamic-rendering)，并检查终端中的输出。静态（或预渲染）路由将显示 `○` 符号，而动态路由将显示 `ƒ` 符号。例如：
+
+```bash filename="Build Output"
+Route (app)
+┌ ○ /_not-found
+└ ƒ /products/[id]
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+```
+
+<AppOnly>
+
+路由可能选择退出静态渲染有两个原因：
+
+- 存在依赖运行时信息的 [Dynamic APIs](/docs/app/guides/caching#dynamic-rendering)。
+- 存在[未缓存的数据请求](/docs/app/getting-started/fetching-data)，例如对 ORM 或数据库驱动程序的调用。
+
+检查你的路由是否存在这些条件，如果无法静态渲染路由，则考虑使用 [`loading.js`](/docs/app/api-reference/file-conventions/loading) 或 [`<Suspense />`](https://react.dev/reference/react/Suspense) 来利用[流式传输](/docs/app/getting-started/linking-and-navigating#streaming)。
+
+</AppOnly>
+
+<PagesOnly>
+
+当从页面导出 [`getServerSideProps`](/docs/pages/building-your-application/data-fetching/get-server-side-props) 或 [`getInitialProps`](/docs/pages/api-reference/functions/get-initial-props) 时，它将被标记为动态。
+
+</PagesOnly>
+
+## 版本历史
+
+| Version   | Changes                                                                               |
+| --------- | ------------------------------------------------------------------------------------- |
+| `v16.0.0` | `appIsrStatus`、`buildActivity` 和 `buildActivityPosition` 选项已被移除。                     |
+| `v15.2.0` | 改进了屏幕指示器，新增 `position` 选项。`appIsrStatus`、`buildActivity` 和 `buildActivityPosition` 选项已被弃用。 |
+| `v15.0.0` | 引入静态屏幕指示器，新增 `appIsrStatus` 选项。                                                      |

@@ -1,0 +1,371 @@
+---
+title: Prefetching
+description: 了解如何在 Next.js 中配置预取功能
+slug: /docs/app/guides/prefetching
+---
+
+预取让你的应用在不同路由之间的导航感觉瞬间完成。Next.js 会根据应用代码中使用的链接，默认尝试智能地进行预取。
+
+本指南将解释预取的工作原理，并展示常见的实现模式：
+
+- [自动预取](#automatic-prefetch)
+- [手动预取](#manual-prefetch)
+- [悬停触发预取](#hover-triggered-prefetch)
+- [扩展或弃用 link](#extending-or-ejecting-link)
+- [禁用预取](#disabled-prefetch)
+
+## 预取如何工作？
+
+在路由之间导航时，浏览器会请求页面所需的资源，如 HTML 和 JavaScript 文件。预取是在你导航到新路由_之前_，提前获取这些资源的过程。
+
+Next.js 会根据路由自动将你的应用拆分成更小的 JavaScript 代码块。与传统 SPA 预先加载所有代码不同，只有当前路由所需的代码会被加载。这减少了初始加载时间，而应用的其他部分则在后台加载。当你点击链接时，新路由的资源已经被加载到浏览器缓存中。
+
+导航到新页面时，不会有完整的页面重载或浏览器加载动画。相反，Next.js 执行[客户端过渡](/docs/app/getting-started/linking-and-navigating#client-side-transitions)，让页面导航感觉瞬间完成。
+
+## 预取静态与动态路由
+
+|                                                                   | **静态页面**      | **动态页面**                                                                      |
+| ----------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------- |
+| **已预取**                                                         | 是，完整路由        | 否，除非使用 [`loading.js`](/docs/app/api-reference/file-conventions/loading)     |
+| [**客户端缓存 TTL**](/docs/app/guides/caching#full-route-cache)      | 5 分钟（默认）      | 关闭，除非[启用](/docs/app/api-reference/config/next-config-js/staleTimes)        |
+| **点击时的服务器往返**                                                  | 否               | 是，在 [shell](/docs/app/getting-started/cache-components) 之后流式传输            |
+
+> **值得注意的是**： 在初始导航期间，浏览器会获取 HTML、JavaScript 和 React Server Components (RSC) Payload。对于后续导航，浏览器将获取 Server Components 的 RSC Payload 和 Client Components 的 JS bundle。
+
+## 自动预取
+
+```tsx filename="app/ui/nav-link.tsx" switcher
+import Link from 'next/link'
+
+export default function NavLink() {
+  return <Link href="/about">About</Link>
+}
+```
+
+```jsx filename="app/ui/nav-link.js" switcher
+import Link from 'next/link'
+
+export default function NavLink() {
+  return <Link href="/about">About</Link>
+}
+```
+
+| **上下文**           | **预取的 payload**                  | **客户端缓存 TTL**                                                                  |
+| ----------------- | -------------------------------- | ------------------------------------------------------------------------------ |
+| 无 `loading.js`   | 整个页面                             | 直到应用重载                                                                         |
+| 有 `loading.js`   | Layout 到第一个 loading 边界           | 30 秒（[可配置](/docs/app/api-reference/config/next-config-js/staleTimes)）        |
+
+自动预取仅在生产环境中运行。使用 `prefetch={false}` 禁用，或使用[禁用预取](#disabled-prefetch)中的包装器。
+
+## 手动预取
+
+要进行手动预取，从 `next/navigation` 导入 `useRouter` hook，并调用 `router.prefetch()` 来预热视口外的路由，或响应分析、悬停、滚动等事件。
+
+```tsx
+'use client'
+
+import { useRouter } from 'next/navigation'
+import { CustomLink } from '@components/link'
+
+export function PricingCard() {
+  const router = useRouter()
+
+  return (
+    <div onMouseEnter={() => router.prefetch('/pricing')}>
+      {/* 其他 UI 元素 */}
+      <CustomLink href="/pricing">查看价格</CustomLink>
+    </div>
+  )
+}
+```
+
+如果意图是在组件加载时预取 URL，请参见扩展或弃用 link 的[示例]。
+
+## 悬停触发预取
+
+> **请谨慎操作：** 扩展 `Link` 意味着你需要自行维护预取、缓存失效和无障碍访问问题。仅在默认设置不足以满足需求时才进行此操作。
+
+Next.js 默认会尝试进行正确的预取，但高级用户可以根据自己的需求进行弃用和修改。你可以在性能和资源消耗之间进行控制。
+
+例如，你可能只需要在悬停时触发预取，而不是在进入视口时（默认行为）：
+
+```tsx
+'use client'
+
+import Link from 'next/link'
+import { useState } from 'react'
+
+export function HoverPrefetchLink({
+  href,
+  children,
+}: {
+  href: string
+  children: React.ReactNode
+}) {
+  const [active, setActive] = useState(false)
+
+  return (
+    <Link
+      href={href}
+      prefetch={active ? null : false}
+      onMouseEnter={() => setActive(true)}
+    >
+      {children}
+    </Link>
+  )
+}
+```
+
+`prefetch={null}` 会在用户显示意图后恢复默认（静态）预取。
+
+## 扩展或弃用 link
+
+你可以扩展 `<Link>` 组件来创建自己的自定义预取策略。例如，使用 [ForesightJS](https://foresightjs.com/docs/integrations/nextjs) 库，通过预测用户光标的方向来预取链接。
+
+或者，你可以使用 [`useRouter`](/docs/app/api-reference/functions/use-router) 重新创建一些原生 `<Link>` 的行为。但请注意，这意味着你需要自行维护预取和缓存失效。
+
+```tsx
+'use client'
+
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
+
+function ManualPrefetchLink({
+  href,
+  children,
+}: {
+  href: string
+  children: React.ReactNode
+}) {
+  const router = useRouter()
+
+  useEffect(() => {
+    let cancelled = false
+    const poll = () => {
+      if (!cancelled) router.prefetch(href, { onInvalidate: poll })
+    }
+    poll()
+    return () => {
+      cancelled = true
+    }
+  }, [href, router])
+
+  return (
+    
+      href={href}
+      onClick={(event) => {
+        event.preventDefault()
+        router.push(href)
+      }}
+    >
+      {children}
+    </a>
+  )
+}
+```
+
+当 Next.js 怀疑缓存数据过期时，会调用 [`onInvalidate`](/docs/app/api-reference/functions/use-router#userouter)，允许你刷新预取。
+
+> **值得注意的是**： 使用 `a` 标签会导致完整的页面导航到目标路由，你可以使用 `onClick` 来阻止完整的页面导航，然后调用 `router.push` 导航到目标。
+
+## 禁用预取
+
+你可以完全禁用某些路由的预取，以更细粒度地控制资源消耗。
+
+```tsx
+'use client'
+
+import Link, { LinkProps } from 'next/link'
+
+function NoPrefetchLink({
+  prefetch,
+  ...rest
+}: LinkProps & { children: React.ReactNode }) {
+  return <Link {...rest} prefetch={false} />
+}
+```
+
+例如，你可能仍然希望在应用中一致地使用 `<Link>`，但页脚中的链接可能不需要在进入视口时预取。
+
+## 预取优化
+
+> **值得注意的是**： Layout 去重和预取调度是即将推出的优化功能。目前可通过 `experimental.clientSegmentCache` 标志在 Next.js canary 版本中使用。
+
+### 客户端缓存
+
+Next.js 将预取的 React Server Component payloads 存储在内存中，按路由段进行键控。在同级路由之间导航时（例如 `/dashboard/settings` → `/dashboard/analytics`），它会重用父 layout，只获取更新的叶子页面。这减少了网络流量并提高了导航速度。
+
+### 预取调度
+
+Next.js 维护一个小型任务队列，按以下顺序进行预取：
+
+1. 视口中的链接
+2. 显示用户意图的链接（悬停或触摸）
+3. 较新的链接替换较旧的链接
+4. 滚动出屏幕的链接被丢弃
+
+调度器优先考虑可能的导航，同时最小化未使用的下载。
+
+### 部分预渲染（PPR）
+
+启用 PPR 时，页面被分为静态 shell 和流式动态部分：
+
+- 可以预取的 shell 立即流式传输
+- 动态数据在准备就绪时流式传输
+- 数据失效（`revalidateTag`、`revalidatePath`）会静默刷新相关的预取
+
+## 故障排除
+
+### 预取期间触发不需要的副作用
+
+如果你的 layout 或 page 不是[纯函数](https://react.dev/learn/keeping-components-pure#purity-components-as-formulas)并且有副作用（例如跟踪分析），这些副作用可能会在路由预取时触发，而不是在用户访问页面时触发。
+
+为避免这种情况，你应该将副作用移到 `useEffect` hook 或从 Client Component 触发的 Server Action 中。
+
+**之前**：
+
+```tsx filename="app/dashboard/layout.tsx" switcher
+import { trackPageView } from '@/lib/analytics'
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  // 这会在预取期间运行
+  trackPageView()
+
+  return <div>{children}</div>
+}
+```
+
+```jsx filename="app/dashboard/layout.js" switcher
+import { trackPageView } from '@/lib/analytics'
+
+export default function Layout({ children }) {
+  // 这会在预取期间运行
+  trackPageView()
+
+  return <div>{children}</div>
+}
+```
+
+**之后**：
+
+```tsx filename="app/ui/analytics-tracker.tsx" switcher
+'use client'
+
+import { useEffect } from 'react'
+import { trackPageView } from '@/lib/analytics'
+
+export function AnalyticsTracker() {
+  useEffect(() => {
+    trackPageView()
+  }, [])
+
+  return null
+}
+```
+
+```jsx filename="app/ui/analytics-tracker.js" switcher
+'use client'
+
+import { useEffect } from 'react'
+import { trackPageView } from '@/lib/analytics'
+
+export function AnalyticsTracker() {
+  useEffect(() => {
+    trackPageView()
+  }, [])
+
+  return null
+}
+```
+
+```tsx filename="app/dashboard/layout.tsx" switcher
+import { AnalyticsTracker } from '@/app/ui/analytics-tracker'
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <div>
+      <AnalyticsTracker />
+      {children}
+    </div>
+  )
+}
+```
+
+```jsx filename="app/dashboard/layout.js" switcher
+import { AnalyticsTracker } from '@/app/ui/analytics-tracker'
+
+export default function Layout({ children }) {
+  return (
+    <div>
+      <AnalyticsTracker />
+      {children}
+    </div>
+  )
+}
+```
+
+### 防止过多的预取
+
+使用 `<Link>` 组件时，Next.js 会自动预取视口中的链接。
+
+在某些情况下，你可能希望防止这种情况以避免不必要的资源使用，例如渲染大量链接列表时（例如无限滚动表格）。
+
+你可以通过将 `<Link>` 组件的 `prefetch` 属性设置为 `false` 来禁用预取。
+
+```tsx filename="app/ui/no-prefetch-link.tsx" switcher
+<Link prefetch={false} href={`/blog/${post.id}`}>
+  {post.title}
+</Link>
+```
+
+但是，这意味着静态路由只会在点击时获取，而动态路由会在导航前等待服务器渲染。
+
+要在不完全禁用预取的情况下减少资源使用，你可以将预取延迟到用户悬停在链接上时。这仅针对用户可能访问的链接。
+
+```tsx filename="app/ui/hover-prefetch-link.tsx" switcher
+'use client'
+
+import Link from 'next/link'
+import { useState } from 'react'
+
+export function HoverPrefetchLink({
+  href,
+  children,
+}: {
+  href: string
+  children: React.ReactNode
+}) {
+  const [active, setActive] = useState(false)
+
+  return (
+    <Link
+      href={href}
+      prefetch={active ? null : false}
+      onMouseEnter={() => setActive(true)}
+    >
+      {children}
+    </Link>
+  )
+}
+```
+
+```jsx filename="app/ui/hover-prefetch-link.js" switcher
+'use client'
+
+import Link from 'next/link'
+import { useState } from 'react'
+
+export function HoverPrefetchLink({ href, children }) {
+  const [active, setActive] = useState(false)
+
+  return (
+    <Link
+      href={href}
+      prefetch={active ? null : false}
+      onMouseEnter={() => setActive(true)}
+    >
+      {children}
+    </Link>
+  )
+}
+```

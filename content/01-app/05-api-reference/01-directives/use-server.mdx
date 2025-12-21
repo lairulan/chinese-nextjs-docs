@@ -1,0 +1,162 @@
+---
+title: use server
+description: 学习如何使用 use server 指令在服务器上执行代码。
+slug: /docs/app/api-reference/directives/use-server
+---
+
+`use server` 指令指定一个函数或文件在**服务器端**执行。它可以用在文件顶部来表示文件中的所有函数都是服务器端的，或者内联在函数顶部来标记该函数为 [Server Function](https://19.react.dev/reference/rsc/server-functions)。这是一个 React 功能。
+
+## 在文件顶部使用 `use server`
+
+以下示例展示了一个在顶部带有 `use server` 指令的文件。文件中的所有函数都在服务器上执行。
+
+```tsx filename="app/actions.ts" highlight={1} switcher
+'use server'
+import { db } from '@/lib/db' // 你的数据库客户端
+
+export async function createUser(data: { name: string; email: string }) {
+  const user = await db.user.create({ data })
+  return user
+}
+```
+
+```jsx filename="app/actions.js" highlight={1} switcher
+'use server'
+import { db } from '@/lib/db' // 你的数据库客户端
+
+export async function createUser(data) {
+  const user = await db.user.create({ data })
+  return user
+}
+```
+
+### 在 Client Component 中使用 Server Functions
+
+要在 Client Components 中使用 Server Functions，你需要在一个专用文件中创建 Server Functions，并在文件顶部使用 `use server` 指令。这些 Server Functions 可以被导入到 Client 和 Server Components 中并执行。
+
+假设你在 `actions.ts` 中有一个 `fetchUsers` Server Function：
+
+```tsx filename="app/actions.ts" highlight={1} switcher
+'use server'
+import { db } from '@/lib/db' // 你的数据库客户端
+
+export async function fetchUsers() {
+  const users = await db.user.findMany()
+  return users
+}
+```
+
+```jsx filename="app/actions.js" highlight={1} switcher
+'use server'
+import { db } from '@/lib/db' // 你的数据库客户端
+
+export async function fetchUsers() {
+  const users = await db.user.findMany()
+  return users
+}
+```
+
+然后你可以将 `fetchUsers` Server Function 导入到 Client Component 中，并在客户端执行它。
+
+```tsx filename="app/components/my-button.tsx" highlight={1,2,8} switcher
+'use client'
+import { fetchUsers } from '../actions'
+
+export default function MyButton() {
+  return <button onClick={() => fetchUsers()}>Fetch Users</button>
+}
+```
+
+```jsx filename="app/components/my-button.js" highlight={1,2,8} switcher
+'use client'
+import { fetchUsers } from '../actions'
+
+export default function MyButton() {
+  return <button onClick={() => fetchUsers()}>Fetch Users</button>
+}
+```
+
+## 内联使用 `use server`
+
+在以下示例中，`use server` 内联在函数顶部，将其标记为 [Server Function](https://19.react.dev/reference/rsc/server-functions)：
+
+```tsx filename="app/posts/[id]/page.tsx" switcher highlight={8}
+import { EditPost } from './edit-post'
+import { revalidatePath } from 'next/cache'
+
+export default async function PostPage({ params }: { params: { id: string } }) {
+  const post = await getPost(params.id)
+
+  async function updatePost(formData: FormData) {
+    'use server'
+    await savePost(params.id, formData)
+    revalidatePath(`/posts/${params.id}`)
+  }
+
+  return <EditPost updatePostAction={updatePost} post={post} />
+}
+```
+
+```jsx filename="app/posts/[id]/page.js" switcher highlight={8}
+import { EditPost } from './edit-post'
+import { revalidatePath } from 'next/cache'
+
+export default async function PostPage({ params }) {
+  const post = await getPost(params.id)
+
+  async function updatePost(formData) {
+    'use server'
+    await savePost(params.id, formData)
+    revalidatePath(`/posts/${params.id}`)
+  }
+
+  return <EditPost updatePostAction={updatePost} post={post} />
+}
+```
+
+## 安全注意事项
+
+使用 `use server` 指令时，确保所有服务器端逻辑都是安全的，并且敏感数据受到保护，这一点非常重要。
+
+### 身份验证和授权
+
+在执行敏感的服务器端操作之前，始终进行用户身份验证和授权。
+
+```tsx filename="app/actions.ts" highlight={1,7,8,9,10} switcher
+'use server'
+
+import { db } from '@/lib/db' // 你的数据库客户端
+import { authenticate } from '@/lib/auth' // 你的身份验证库
+
+export async function createUser(
+  data: { name: string; email: string },
+  token: string
+) {
+  const user = authenticate(token)
+  if (!user) {
+    throw new Error('Unauthorized')
+  }
+  const newUser = await db.user.create({ data })
+  return newUser
+}
+```
+
+```jsx filename="app/actions.js" highlight={1,7,8,9,10} switcher
+'use server'
+
+import { db } from '@/lib/db' // 你的数据库客户端
+import { authenticate } from '@/lib/auth' // 你的身份验证库
+
+export async function createUser(data, token) {
+  const user = authenticate(token)
+  if (!user) {
+    throw new Error('Unauthorized')
+  }
+  const newUser = await db.user.create({ data })
+  return newUser
+}
+```
+
+## 参考
+
+查看 [React 文档](https://react.dev/reference/rsc/use-server)以获取关于 `use server` 的更多信息。

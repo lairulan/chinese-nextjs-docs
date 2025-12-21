@@ -1,0 +1,38 @@
+.footer_root {
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 0;
+  overflow: hidden;
+  border-top: 1px solid var(--accents-2);
+}
+.geist-wrapper {
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  width: var(--geist-page-width-with-margin);
+  padding-left: var(--geist-page-margin);
+  padding-right: var(--geist-page-margin);
+}
+.geist-wrapper {
+  width: 1248px;
+}
+.geist {
+  padding: 36px 0;
+  min-height: 400px;
+}
+.geist h4 {
+  margin: 0 0 16px;
+  line-height: 20px;
+  font-weight: 500;
+  font-size: 14px;
+}
+.geist a {
+  margin-top: 0;
+  line-height: 20px;
+  font-size: 14px;
+  color: var(--accents-5);
+  border-radius: 2px;
+}
+.footer_copyright {
+  color: var(--accents-5);
+}

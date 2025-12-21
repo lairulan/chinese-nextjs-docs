@@ -1,0 +1,144 @@
+---
+title: Route Handlers
+nav_title: Route Handlers
+description: 学习如何使用 Route Handlers
+related:
+  title: API 参考
+  description: 了解更多关于 Route Handlers 的信息
+  links:
+    - app/api-reference/file-conventions/route
+    - app/guides/backend-for-frontend
+slug: /docs/app/getting-started/route-handlers
+---
+
+## Route Handlers
+
+Route Handlers 允许你使用 Web [Request](https://developer.mozilla.org/docs/Web/API/Request) 和 [Response](https://developer.mozilla.org/docs/Web/API/Response) API 为给定路由创建自定义请求处理器。
+
+<Image
+  alt="Route.js Special File"
+  srcLight="/light/route-special-file.png"
+  srcDark="/dark/route-special-file.png"
+  width="1600"
+  height="444"
+/>
+
+> **值得注意的是**：Route Handlers 仅在 `app` 目录内可用。它们相当于 `pages` 目录内的 [API Routes](/docs/pages/building-your-application/routing/api-routes)，这意味着你**不**需要同时使用 API Routes 和 Route Handlers。
+
+### 约定
+
+Route Handlers 在 `app` 目录内的 [`route.js|ts` 文件](/docs/app/api-reference/file-conventions/route)中定义：
+
+```ts filename="app/api/route.ts" switcher
+export async function GET(request: Request) {}
+```
+
+```js filename="app/api/route.js" switcher
+export async function GET(request) {}
+```
+
+Route Handlers 可以嵌套在 `app` 目录内的任何位置，类似于 `page.js` 和 `layout.js`。但**不能**在与 `page.js` 相同的路由段级别上存在 `route.js` 文件。
+
+### 支持的 HTTP 方法
+
+支持以下 [HTTP 方法](https://developer.mozilla.org/docs/Web/HTTP/Methods)：`GET`、`POST`、`PUT`、`PATCH`、`DELETE`、`HEAD` 和 `OPTIONS`。如果调用了不支持的方法，Next.js 将返回 `405 Method Not Allowed` 响应。
+
+### 扩展的 `NextRequest` 和 `NextResponse` API
+
+除了支持原生的 [Request](https://developer.mozilla.org/docs/Web/API/Request) 和 [Response](https://developer.mozilla.org/docs/Web/API/Response) API 外，Next.js 还通过 [`NextRequest`](/docs/app/api-reference/functions/next-request) 和 [`NextResponse`](/docs/app/api-reference/functions/next-response) 对它们进行了扩展，为高级用例提供便捷的辅助函数。
+
+### 缓存
+
+Route Handlers 默认不会被缓存。但是，你可以选择对 `GET` 方法进行缓存。其他支持的 HTTP 方法**不会**被缓存。要缓存 `GET` 方法，请在你的 Route Handler 文件中使用[路由配置选项](/docs/app/api-reference/file-conventions/route-segment-config#dynamic)，例如 `export const dynamic = 'force-static'`。
+
+```ts filename="app/items/route.ts" switcher
+export const dynamic = 'force-static'
+
+export async function GET() {
+  const res = await fetch('https://data.mongodb-api.com/...', {
+    headers: {
+      'Content-Type': 'application/json',
+      'API-Key': process.env.DATA_API_KEY,
+    },
+  })
+  const data = await res.json()
+
+  return Response.json({ data })
+}
+```
+
+```js filename="app/items/route.js" switcher
+export const dynamic = 'force-static'
+
+export async function GET() {
+  const res = await fetch('https://data.mongodb-api.com/...', {
+    headers: {
+      'Content-Type': 'application/json',
+      'API-Key': process.env.DATA_API_KEY,
+    },
+  })
+  const data = await res.json()
+
+  return Response.json({ data })
+}
+```
+
+> **值得注意的是**：其他支持的 HTTP 方法**不会**被缓存，即使它们与被缓存的 `GET` 方法放在同一个文件中。
+
+### 特殊的 Route Handlers
+
+特殊的 Route Handlers，如 [`sitemap.ts`](/docs/app/api-reference/file-conventions/metadata/sitemap)、[`opengraph-image.tsx`](/docs/app/api-reference/file-conventions/metadata/opengraph-image) 和 [`icon.tsx`](/docs/app/api-reference/file-conventions/metadata/app-icons)，以及其他[元数据文件](/docs/app/api-reference/file-conventions/metadata)，除非它们使用 Dynamic API 或动态配置选项，否则默认保持静态。
+
+### 路由解析
+
+你可以将 `route` 视为最底层的路由原语。
+
+- 它们**不**参与布局或客户端导航，如 `page`。
+- 在与 `page.js` 相同的路由上**不能**有 `route.js` 文件。
+
+| Page                 | Route              | Result                       |
+| -------------------- | ------------------ | ---------------------------- |
+| `app/page.js`        | `app/route.js`     | <Cross size={18} /> 冲突 |
+| `app/page.js`        | `app/api/route.js` | <Check size={18} /> 有效    |
+| `app/[user]/page.js` | `app/api/route.js` | <Check size={18} /> 有效    |
+
+每个 `route.js` 或 `page.js` 文件接管该路由的所有 HTTP 动词。
+
+```ts filename="app/page.ts" switcher
+export default function Page() {
+  return <h1>Hello, Next.js!</h1>
+}
+
+// 冲突
+// `app/route.ts`
+export async function POST(request: Request) {}
+```
+
+```js filename="app/page.js" switcher
+export default function Page() {
+  return <h1>Hello, Next.js!</h1>
+}
+
+// 冲突
+// `app/route.js`
+export async function POST(request) {}
+```
+
+阅读更多关于 Route Handlers 如何[补充你的前端应用程序](/docs/app/guides/backend-for-frontend)的信息，或探索 Route Handlers [API 参考](/docs/app/api-reference/file-conventions/route)。
+
+### Route Context Helper
+
+在 TypeScript 中，你可以使用全局可用的 [`RouteContext`](/docs/app/api-reference/file-conventions/route#route-context-helper) 辅助函数为 Route Handlers 的 `context` 参数添加类型：
+
+```ts filename="app/users/[id]/route.ts" switcher
+import type { NextRequest } from 'next/server'
+
+export async function GET(_req: NextRequest, ctx: RouteContext<'/users/[id]'>) {
+  const { id } = await ctx.params
+  return Response.json({ id })
+}
+```
+
+> **值得注意的是**
+>
+> - 类型在 `next dev`、`next build` 或 `next typegen` 期间生成。

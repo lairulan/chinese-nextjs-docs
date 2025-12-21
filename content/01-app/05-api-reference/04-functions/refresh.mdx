@@ -1,0 +1,72 @@
+---
+title: refresh
+description: refresh 函数的 API 参考。
+slug: /docs/app/api-reference/functions/refresh
+---
+
+`refresh` 允许你在 [Server Action](/docs/app/getting-started/updating-data) 中刷新客户端路由。
+
+## 用法
+
+`refresh` **只能**在 Server Actions 中调用。它不能在 Route Handlers、Client Components 或任何其他上下文中使用。
+
+## 参数
+
+```tsx
+refresh(): void;
+```
+
+## 返回值
+
+`refresh` 不返回任何值。
+
+## 示例
+
+```ts filename="app/actions.ts" switcher
+'use server'
+
+import { refresh } from 'next/cache'
+import { redirect } from 'next/navigation'
+
+export async function createPost(formData: FormData) {
+  const title = formData.get('title')
+  const content = formData.get('content')
+
+  // 在你的数据库中创建文章
+  const post = await db.post.create({
+    data: { title, content },
+  })
+
+  refresh()
+}
+```
+
+```js filename="app/actions.js" switcher
+'use server'
+
+import { refresh } from 'next/cache'
+import { redirect } from 'next/navigation'
+
+export async function createPost(formData) {
+  const title = formData.get('title')
+  const content = formData.get('content')
+
+  // 在你的数据库中创建文章
+  const post = await db.post.create({
+    data: { title, content },
+  })
+
+  refresh()
+}
+```
+
+### 在 Server Actions 外使用时的错误
+
+```ts filename="app/api/posts/route.ts" switcher
+import { refresh } from 'next/cache'
+
+export async function POST() {
+  // 这将抛出错误
+  refresh()
+}
+```

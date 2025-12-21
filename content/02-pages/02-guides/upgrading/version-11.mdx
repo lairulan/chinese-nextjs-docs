@@ -1,0 +1,150 @@
+---
+title: How to upgrade to version 11
+nav_title: Version 11
+description: 将你的 Next.js 应用从版本 10 升级到版本 11。
+slug: /docs/pages/guides/upgrading/version-11
+---
+
+要升级到版本 11，请运行以下命令：
+
+```bash filename="Terminal"
+npm i next@11 react@17 react-dom@17
+```
+
+```bash filename="Terminal"
+yarn add next@11 react@17 react-dom@17
+```
+
+```bash filename="Terminal"
+pnpm up next@11 react@17 react-dom@17
+```
+
+```bash filename="Terminal"
+bun add next@11 react@17 react-dom@17
+```
+
+> **值得注意的是**： 如果你使用的是 TypeScript，请确保同时将 `@types/react` 和 `@types/react-dom` 升级到相应版本。
+
+### Webpack 5
+
+Webpack 5 现在是所有 Next.js 应用的默认选项。如果你没有自定义 webpack 配置，你的应用已经在使用 webpack 5。如果你有自定义 webpack 配置，可以参考 [Next.js webpack 5 文档](/docs/messages/webpack5) 获取升级指导。
+
+### 清理 `distDir` 现在是默认行为
+
+构建输出目录（默认为 `.next`）现在会被默认清理，Next.js 缓存除外。你可以参考 [清理 `distDir` 的 RFC](https://github.com/vercel/next.js/discussions/6009) 获取更多信息。
+
+如果你的应用之前依赖于这个行为，可以通过在 `next.config.js` 中添加 `cleanDistDir: false` 标志来禁用新的默认行为。
+
+### `PORT` 现在支持 `next dev` 和 `next start`
+
+Next.js 11 支持使用 `PORT` 环境变量来设置应用运行的端口。使用 `-p`/`--port` 仍然是推荐的方式，但如果你因为某些原因无法使用 `-p`，现在可以使用 `PORT` 作为替代方案：
+
+示例：
+
+```
+PORT=4000 next start
+```
+
+### 自定义 `next.config.js` 以导入图片
+
+Next.js 11 支持使用 `next/image` 进行静态图片导入。这个新功能依赖于能够处理图片导入。如果你之前添加了 `next-images` 或 `next-optimized-images` 包，你可以选择迁移到使用 `next/image` 的新内置支持，或禁用该功能：
+
+```js filename="next.config.js"
+module.exports = {
+  images: {
+    disableStaticImages: true,
+  },
+}
+```
+
+### 从 `pages/_app.js` 中移除 `super.componentDidCatch()`
+
+`next/app` 组件的 `componentDidCatch` 在 Next.js 9 中被废弃，因为它不再需要，并且此后一直是无操作的。在 Next.js 11 中，它被移除了。
+
+如果你的 `pages/_app.js` 有自定义的 `componentDidCatch` 方法，你可以移除 `super.componentDidCatch`，因为它不再需要。
+
+### 从 `pages/_app.js` 中移除 `Container`
+
+这个导出在 Next.js 9 中被废弃，因为它不再需要，并且此后一直是无操作的，在开发过程中会显示警告。在 Next.js 11 中，它被移除了。
+
+如果你的 `pages/_app.js` 从 `next/app` 导入了 `Container`，你可以移除 `Container`，因为它已被移除。在[文档](/docs/messages/app-container-deprecated)中了解更多。
+
+### 从页面组件中移除 `props.url` 的使用
+
+这个属性在 Next.js 4 中被废弃，此后在开发过程中一直显示警告。随着 `getStaticProps` / `getServerSideProps` 的引入，这些方法已经禁止使用 `props.url`。在 Next.js 11 中，它被完全移除。
+
+你可以在[文档](/docs/messages/url-deprecated)中了解更多。
+
+### 移除 `next/image` 上的 `unsized` 属性
+
+`next/image` 上的 `unsized` 属性在 Next.js 10.0.1 中被废弃。你可以使用 `layout="fill"` 替代。在 Next.js 11 中，`unsized` 被移除。
+
+### 移除 `next/dynamic` 上的 `modules` 属性
+
+`next/dynamic` 的 `modules` 和 `render` 选项在 Next.js 9.5 中被废弃。这样做是为了使 `next/dynamic` API 更接近 `React.lazy`。在 Next.js 11 中，`modules` 和 `render` 选项被移除。
+
+自 Next.js 8 以来，文档中就没有提及这个选项，所以你的应用不太可能使用它。
+
+如果你的应用确实使用了 `modules` 和 `render`，可以参考[文档](/docs/messages/next-dynamic-modules)。
+
+### 移除 `Head.rewind`
+
+自 Next.js 9.5 以来，`Head.rewind` 一直是无操作的，在 Next.js 11 中它被移除。你可以安全地移除对 `Head.rewind` 的使用。
+
+### Moment.js 语言包默认被排除
+
+Moment.js 默认包含许多语言的翻译。Next.js 现在会自动排除这些语言包，以优化使用 Moment.js 的应用的包大小。
+
+要加载特定的语言包，可以使用以下代码片段：
+
+```js
+import moment from 'moment'
+import 'moment/locale/ja'
+
+moment.locale('ja')
+```
+
+如果你不想要这个新的默认行为，可以在 `next.config.js` 中添加 `excludeDefaultMomentLocales: false` 来选择退出，但请注意，强烈建议不要禁用这个新的优化，因为它能显著减小 Moment.js 的大小。
+
+### 更新 `router.events` 的使用
+
+如果你在渲染期间访问 `router.events`，在 Next.js 11 中，预渲染期间不再提供 `router.events`。确保你在 `useEffect` 中访问 `router.events`：
+
+```js
+useEffect(() => {
+  const handleRouteChange = (url, { shallow }) => {
+    console.log(
+      `App is changing to ${url} ${
+        shallow ? 'with' : 'without'
+      } shallow routing`
+    )
+  }
+
+  router.events.on('routeChangeStart', handleRouteChange)
+
+  // 如果组件卸载，使用 `off` 方法取消事件订阅：
+  return () => {
+    router.events.off('routeChangeStart', handleRouteChange)
+  }
+}, [router])
+```
+
+如果你的应用使用了内部属性 `router.router.events`（这不是公开的属性），请确保也改用 `router.events`。
+
+## React 16 到 17
+
+React 17 引入了新的 [JSX Transform](https://reactjs.org/blog/2020/09/22/introducing-the-new-jsx-transform.html)，将 Next.js 长期以来的一个功能带入更广泛的 React 生态系统：使用 JSX 时不必 `import React from 'react'`。当使用 React 17 时，Next.js 将自动使用新的转换。这个转换不会使 `React` 变量成为全局变量，这是之前 Next.js 实现的一个意外副作用。我们提供了一个 [codemod](/docs/pages/guides/upgrading/codemods#add-missing-react-import) 来自动修复你在没有导入 React 的情况下意外使用 `React` 的情况。
+
+大多数应用已经在使用最新版本的 React，使用 Next.js 11，React 的最低版本已更新为 17.0.2。
+
+要升级，你可以运行以下命令：
+
+```
+npm install react@latest react-dom@latest
+```
+
+或使用 `yarn`：
+
+```
+yarn add react@latest react-dom@latest
+```

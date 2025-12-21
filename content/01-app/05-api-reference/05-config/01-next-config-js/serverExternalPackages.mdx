@@ -1,0 +1,98 @@
+---
+title: serverExternalPackages
+description: 从 Server Components 打包中排除特定依赖项，并使用原生 Node.js `require`。
+slug: /docs/app/api-reference/config/next-config-js/serverExternalPackages
+---
+
+在 [Server Components](/docs/app/getting-started/server-and-client-components) 和 [Route Handlers](/docs/app/api-reference/file-conventions/route) 中使用的依赖项将自动由 Next.js 打包。
+
+如果某个依赖项使用了 Node.js 特定功能，你可以选择将特定依赖项从 Server Components 打包中排除，并使用原生 Node.js `require`。
+
+```js filename="next.config.js"
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  serverExternalPackages: ['@acme/ui'],
+}
+
+module.exports = nextConfig
+```
+
+Next.js 包含了一个[常用包的简短列表](https://github.com/vercel/next.js/blob/canary/packages/next/src/lib/server-external-packages.json)，这些包目前正在进行兼容性工作，并已自动排除：
+
+- `@appsignal/nodejs`
+- `@aws-sdk/client-s3`
+- `@aws-sdk/s3-presigned-post`
+- `@blockfrost/blockfrost-js`
+- `@highlight-run/node`
+- `@huggingface/transformers`
+- `@jpg-store/lucid-cardano`
+- `@libsql/client`
+- `@mikro-orm/core`
+- `@mikro-orm/knex`
+- `@node-rs/argon2`
+- `@node-rs/bcrypt`
+- `@prisma/client`
+- `@react-pdf/renderer`
+- `@sentry/profiling-node`
+- `@sparticuz/chromium`
+- `@sparticuz/chromium-min`
+- `@statsig/statsig-node-core`
+- `@swc/core`
+- `@xenova/transformers`
+- `argon2`
+- `autoprefixer`
+- `aws-crt`
+- `bcrypt`
+- `better-sqlite3`
+- `canvas`
+- `chromadb-default-embed`
+- `config`
+- `cpu-features`
+- `cypress`
+- `dd-trace`
+- `eslint`
+- `express`
+- `firebase-admin`
+- `htmlrewriter`
+- `import-in-the-middle`
+- `isolated-vm`
+- `jest`
+- `jsdom`
+- `keyv`
+- `libsql`
+- `mdx-bundler`
+- `mongodb`
+- `mongoose`
+- `newrelic`
+- `next-mdx-remote`
+- `next-seo`
+- `node-cron`
+- `node-pty`
+- `node-web-audio-api`
+- `onnxruntime-node`
+- `oslo`
+- `pg`
+- `playwright`
+- `playwright-core`
+- `postcss`
+- `prettier`
+- `prisma`
+- `puppeteer-core`
+- `puppeteer`
+- `ravendb`
+- `require-in-the-middle`
+- `rimraf`
+- `sharp`
+- `shiki`
+- `sqlite3`
+- `ts-node`
+- `ts-morph`
+- `typescript`
+- `vscode-oniguruma`
+- `webpack`
+- `websocket`
+- `zeromq`
+
+| Version   | Changes                                                                                |
+| --------- | -------------------------------------------------------------------------------------- |
+| `v15.0.0` | 从实验性功能迁移至稳定版。从 `serverComponentsExternalPackages` 重命名为 `serverExternalPackages` |

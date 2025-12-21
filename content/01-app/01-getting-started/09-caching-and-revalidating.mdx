@@ -1,0 +1,310 @@
+---
+title: 缓存和重新验证
+description: 学习如何在你的应用程序中缓存和重新验证数据。
+related:
+  title: API Reference
+  description: 通过阅读 API 参考了解本页面提到的功能的更多信息。
+  links:
+    - app/api-reference/functions/fetch
+    - app/api-reference/functions/unstable_cache
+    - app/api-reference/functions/revalidatePath
+    - app/api-reference/functions/revalidateTag
+    - app/api-reference/functions/updateTag
+slug: /docs/app/getting-started/caching-and-revalidating
+---
+
+缓存是一种存储数据获取和其他计算结果的技术，这样对相同数据的未来请求可以更快地提供服务，而无需再次执行相同的工作。而重新验证允许你更新缓存条目，而无需重新构建整个应用程序。
+
+Next.js 提供了一些 API 来处理缓存和重新验证。本指南将介绍何时以及如何使用它们。
+
+- [`fetch`](#fetch)
+- [`unstable_cache`](#unstable_cache)
+- [`revalidatePath`](#revalidatepath)
+- [`revalidateTag`](#revalidatetag)
+- [`updateTag`](#updatetag)
+
+## `fetch`
+
+默认情况下，[`fetch`](/docs/app/api-reference/functions/fetch) 请求不会被缓存。你可以通过将 `cache` 选项设置为 `'force-cache'` 来缓存单个请求。
+
+```tsx filename="app/page.tsx" switcher
+export default async function Page() {
+  const data = await fetch('https://...', { cache: 'force-cache' })
+}
+```
+
+```jsx filename="app/page.jsx" switcher
+export default async function Page() {
+  const data = await fetch('https://...', { cache: 'force-cache' })
+}
+```
+
+> **值得注意的是**：虽然 `fetch` 请求默认不会被缓存，但 Next.js 会[预渲染](/docs/app/guides/caching#static-rendering)包含 `fetch` 请求的路由并缓存 HTML。如果你想确保路由是[动态的](/docs/app/guides/caching#dynamic-rendering)，请使用 [`connection` API](/docs/app/api-reference/functions/connection)。
+
+要重新验证 `fetch` 请求返回的数据，你可以使用 `next.revalidate` 选项。
+
+```tsx filename="app/page.tsx" switcher
+export default async function Page() {
+  const data = await fetch('https://...', { next: { revalidate: 3600 } })
+}
+```
+
+```jsx filename="app/page.jsx" switcher
+export default async function Page() {
+  const data = await fetch('https://...', { next: { revalidate: 3600 } })
+}
+```
+
+这将在指定的秒数后重新验证数据。
+
+查看 [`fetch` API 参考](/docs/app/api-reference/functions/fetch)了解更多信息。
+
+## `unstable_cache`
+
+`unstable_cache` 允许你缓存数据库查询和其他异步函数的结果。要使用它，请用 `unstable_cache` 包装函数。例如：
+
+```ts filename="app/lib/data.ts" switcher
+import { db } from '@/lib/db'
+export async function getUserById(id: string) {
+  return db
+    .select()
+    .from(users)
+    .where(eq(users.id, id))
+    .then((res) => res[0])
+}
+```
+
+```jsx filename="app/lib/data.js" switcher
+import { db } from '@/lib/db'
+
+export async function getUserById(id) {
+  return db
+    .select()
+    .from(users)
+    .where(eq(users.id, id))
+    .then((res) => res[0])
+}
+```
+
+```tsx filename="app/page.tsx" highlight={2,11,13} switcher
+import { unstable_cache } from 'next/cache'
+import { getUserById } from '@/app/lib/data'
+
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ userId: string }>
+}) {
+  const { userId } = await params
+
+  const getCachedUser = unstable_cache(
+    async () => {
+      return getUserById(userId)
+    },
+    [userId] // 将用户 ID 添加到缓存键中
+  )
+}
+```
+
+```jsx filename="app/page.js" highlight={2,7,9} switcher
+import { unstable_cache } from 'next/cache'
+import { getUserById } from '@/app/lib/data'
+
+export default async function Page({ params }) {
+  const { userId } = await params
+
+  const getCachedUser = unstable_cache(
+    async () => {
+      return getUserById(userId)
+    },
+    [userId] // 将用户 ID 添加到缓存键中
+  )
+}
+```
+
+该函数接受第三个可选对象来定义缓存应如何重新验证。它接受：
+
+- `tags`：Next.js 用于重新验证缓存的标签数组。
+- `revalidate`：缓存应重新验证的秒数。
+
+```tsx filename="app/page.tsx" highlight={6-9} switcher
+const getCachedUser = unstable_cache(
+  async () => {
+    return getUserById(userId)
+  },
+  [userId],
+  {
+    tags: ['user'],
+    revalidate: 3600,
+  }
+)
+```
+
+```jsx filename="app/page.js" highlight={6-9} switcher
+const getCachedUser = unstable_cache(
+  async () => {
+    return getUserById(userId)
+  },
+  [userId],
+  {
+    tags: ['user'],
+    revalidate: 3600,
+  }
+)
+```
+
+查看 [`unstable_cache` API 参考](/docs/app/api-reference/functions/unstable_cache)了解更多信息。
+
+## `revalidateTag`
+
+`revalidateTag` 用于根据标签和事件重新验证缓存条目。该函数现在支持两种行为：
+
+- **使用 `profile="max"`**：使用 stale-while-revalidate 语义，在后台获取新内容的同时提供过期内容
+- **不使用第二个参数**：立即使缓存过期的旧行为（已弃用）
+
+要与 `fetch` 一起使用，首先使用 `next.tags` 选项标记函数：
+
+```tsx filename="app/lib/data.ts" highlight={3-5} switcher
+export async function getUserById(id: string) {
+  const data = await fetch(`https://...`, {
+    next: {
+      tags: ['user'],
+    },
+  })
+}
+```
+
+```jsx filename="app/lib/data.js" highlight={3-5} switcher
+export async function getUserById(id) {
+  const data = await fetch(`https://...`, {
+    next: {
+      tags: ['user'],
+    },
+  })
+}
+```
+
+或者，你可以使用 `tags` 选项标记 `unstable_cache` 函数：
+
+```tsx filename="app/lib/data.ts" highlight={6-8} switcher
+export const getUserById = unstable_cache(
+  async (id: string) => {
+    return db.query.users.findFirst({ where: eq(users.id, id) })
+  },
+  ['user'], // 如果变量未作为参数传递，则需要
+  {
+    tags: ['user'],
+  }
+)
+```
+
+```jsx filename="app/lib/data.js" highlight={6-8} switcher
+export const getUserById = unstable_cache(
+  async (id) => {
+    return db.query.users.findFirst({ where: eq(users.id, id) })
+  },
+  ['user'], // 如果变量未作为参数传递，则需要
+  {
+    tags: ['user'],
+  }
+)
+```
+
+然后，在 [Route Handler](/docs/app/api-reference/file-conventions/route) 或 Server Action 中调用 `revalidateTag`：
+
+```tsx filename="app/lib/actions.ts" highlight={1,5} switcher
+import { revalidateTag } from 'next/cache'
+
+export async function updateUser(id: string) {
+  // 修改数据
+  revalidateTag('user', 'max') // 推荐：使用 stale-while-revalidate
+}
+```
+
+```jsx filename="app/lib/actions.js" highlight={1,5} switcher
+import { revalidateTag } from 'next/cache'
+
+export async function updateUser(id) {
+  // 修改数据
+  revalidateTag('user', 'max') // 推荐：使用 stale-while-revalidate
+}
+```
+
+你可以在多个函数中重用相同的标签，以便一次性重新验证它们。
+
+查看 [`revalidateTag` API 参考](/docs/app/api-reference/functions/revalidateTag)了解更多信息。
+
+## `revalidatePath`
+
+`revalidatePath` 用于在事件发生后重新验证路由。要使用它，在 [Route Handler](/docs/app/api-reference/file-conventions/route) 或 Server Action 中调用它：
+
+```tsx filename="app/lib/actions.ts" highlight={1} switcher
+import { revalidatePath } from 'next/cache'
+
+export async function updateUser(id: string) {
+  // 修改数据
+  revalidatePath('/profile')
+```
+
+```jsx filename="app/lib/actions.js" highlight={1} switcher
+import { revalidatePath } from 'next/cache'
+
+export async function updateUser(id) {
+  // 修改数据
+  revalidatePath('/profile')
+```
+
+查看 [`revalidatePath` API 参考](/docs/app/api-reference/functions/revalidatePath)了解更多信息。
+
+## `updateTag`
+
+`updateTag` 专为 Server Actions 设计，用于在读取自己写入的场景中立即使缓存数据过期。与 `revalidateTag` 不同，它只能在 Server Actions 中使用，并且会立即使缓存条目过期。
+
+```tsx filename="app/lib/actions.ts" highlight={1,6} switcher
+import { updateTag } from 'next/cache'
+import { redirect } from 'next/navigation'
+
+export async function createPost(formData: FormData) {
+  // 在数据库中创建文章
+  const post = await db.post.create({
+    data: {
+      title: formData.get('title'),
+      content: formData.get('content'),
+    },
+  })
+
+  // 立即使缓存过期，以便新文章可见
+  updateTag('posts')
+  updateTag(`post-${post.id}`)
+
+  redirect(`/posts/${post.id}`)
+}
+```
+
+```jsx filename="app/lib/actions.js" highlight={1,6} switcher
+import { updateTag } from 'next/cache'
+import { redirect } from 'next/navigation'
+
+export async function createPost(formData) {
+  // 在数据库中创建文章
+  const post = await db.post.create({
+    data: {
+      title: formData.get('title'),
+      content: formData.get('content'),
+    },
+  })
+
+  // 立即使缓存过期，以便新文章可见
+  updateTag('posts')
+  updateTag(`post-${post.id}`)
+
+  redirect(`/posts/${post.id}`)
+}
+```
+
+`revalidateTag` 和 `updateTag` 之间的主要区别：
+
+- **`updateTag`**：仅在 Server Actions 中使用，立即使缓存过期，用于读取自己写入的场景
+- **`revalidateTag`**：在 Server Actions 和 Route Handlers 中使用，支持使用 `profile="max"` 的 stale-while-revalidate
+
+查看 [`updateTag` API 参考](/docs/app/api-reference/functions/updateTag)了解更多信息。

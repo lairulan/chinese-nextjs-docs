@@ -1,0 +1,24 @@
+---
+title: transpilePackages
+slug: /docs/app/api-reference/config/next-config-js/transpilePackages
+description: 自动转译和打包来自本地包（如 monorepos）或外部依赖（`node_modules`）的依赖项。
+---
+
+{/* 此文档内容在应用和页面路由器之间共享。你可以使用 `<PagesOnly>Content</PagesOnly>` 组件添加特定于页面路由器的内容。任何共享内容不应包裹在组件中。 */}
+
+Next.js 可以自动转译和打包来自本地包（如 monorepos）或外部依赖（`node_modules`）的依赖项。这取代了 `next-transpile-modules` 包。
+
+```js filename="next.config.js"
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  transpilePackages: ["package-name"],
+};
+
+module.exports = nextConfig;
+```
+
+## 版本历史
+
+| 版本      | 变更                     |
+| --------- | ------------------------ |
+| `v13.0.0` | 添加 `transpilePackages` |

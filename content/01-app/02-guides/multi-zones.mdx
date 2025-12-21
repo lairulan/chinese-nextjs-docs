@@ -1,0 +1,143 @@
+---
+title: 如何使用 multi-zones 和 Next.js 构建微前端
+nav_title: Multi-zones
+description: 学习如何使用 Next.js Multi-Zones 在单个域名下部署多个 Next.js 应用来构建微前端。
+slug: /docs/app/guides/multi-zones
+---
+
+{/* The content of this doc is shared between the app and pages router. You can use the `<PagesOnly>Content</PagesOnly>` component to add content that is specific to the Pages Router. Any shared content should not be wrapped in a component. */}
+
+<details open>
+  <summary>示例</summary>
+
+- [With Zones](https://github.com/vercel/next.js/tree/canary/examples/with-zones)
+
+</details>
+
+Multi-Zones 是一种微前端方法，它将域名上的大型应用程序分离成更小的 Next.js 应用程序，每个应用程序服务一组路径。当应用程序中存在与其他页面无关的页面集合时，这非常有用。通过将这些页面移动到单独的 zone（即单独的应用程序）中，你可以减小每个应用程序的大小，从而改善构建时间并删除仅在其中一个 zone 中需要的代码。由于应用程序是解耦的，Multi-Zones 还允许域名上的其他应用程序使用自己选择的框架。
+
+例如，假设你有以下一组想要拆分的页面：
+
+- `/blog/*` 用于所有博客文章
+- `/dashboard/*` 用于用户登录到仪表板时的所有页面
+- `/*` 用于网站中未被其他 zone 覆盖的其余部分
+
+通过 Multi-Zones 支持，你可以创建三个应用程序，它们都在同一个域名上提供服务，对用户来说看起来是一样的，但你可以独立开发和部署每个应用程序。
+
+<Image
+  alt="三个 zone：A、B、C。显示了不同 zone 之间路由的硬导航，以及同一 zone 内路由之间的软导航。"
+  srcLight="/light/multi-zones.png"
+  srcDark="/dark/multi-zones.png"
+  width="1600"
+  height="750"
+/>
+
+在同一 zone 内的页面之间导航将执行软导航，这是一种不需要重新加载页面的导航。例如，在此图中，从 `/` 导航到 `/products` 将是软导航。
+
+从一个 zone 中的页面导航到另一个 zone 中的页面，例如从 `/` 到 `/dashboard`，将执行硬导航，卸载当前页面的资源并加载新页面的资源。经常一起访问的页面应该位于同一个 zone 中，以避免硬导航。
+
+## 如何定义一个 zone
+
+zone 是一个普通的 Next.js 应用程序，你还需要配置 [assetPrefix](/docs/app/api-reference/config/next-config-js/assetPrefix) 以避免与其他 zone 中的页面和静态文件发生冲突。
+
+```js filename="next.config.js"
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  assetPrefix: '/blog-static',
+}
+```
+
+Next.js 资源（如 JavaScript 和 CSS）将以 `assetPrefix` 作为前缀，以确保它们不会与其他 zone 的资源冲突。这些资源将在每个 zone 的 `/assetPrefix/_next/...` 下提供服务。
+
+处理所有未路由到其他更具体 zone 的路径的默认应用程序不需要 `assetPrefix`。
+
+在 Next.js 15 之前的版本中，你可能还需要额外的 rewrite 来处理静态资源。在 Next.js 15 中不再需要这样做。
+
+```js filename="next.config.js"
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  assetPrefix: '/blog-static',
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: '/blog-static/_next/:path+',
+          destination: '/_next/:path+',
+        },
+      ],
+    }
+  },
+}
+```
+
+## 如何将请求路由到正确的 zone
+
+使用 Multi Zones 设置时，你需要将路径路由到正确的 zone，因为它们由不同的应用程序提供服务。你可以使用任何 HTTP 代理来执行此操作，但也可以使用其中一个 Next.js 应用程序来路由整个域名的请求。
+
+要使用 Next.js 应用程序路由到正确的 zone，你可以使用 [`rewrites`](/docs/app/api-reference/config/next-config-js/rewrites)。对于由不同 zone 提供服务的每个路径，你需要添加一个 rewrite 规则，将该路径发送到其他 zone 的域名，并且还需要重写对静态资源的请求。例如：
+
+```js filename="next.config.js"
+async rewrites() {
+    return [
+        {
+            source: '/blog',
+            destination: `${process.env.BLOG_DOMAIN}/blog`,
+        },
+        {
+            source: '/blog/:path+',
+            destination: `${process.env.BLOG_DOMAIN}/blog/:path+`,
+        },
+        {
+            source: '/blog-static/:path+',
+            destination: `${process.env.BLOG_DOMAIN}/blog-static/:path+`,
+        }
+    ];
+}
+```
+
+`destination` 应该是 zone 提供服务的 URL，包括协议和域名。这应该指向 zone 的生产域名，但也可以用于在本地开发中将请求路由到 `localhost`。
+
+> **值得注意的是**：URL 路径对于 zone 应该是唯一的。例如，两个 zone 试图提供 `/blog` 服务会产生路由冲突。
+
+### 使用代理路由请求
+
+建议通过 [`rewrites`](/docs/app/api-reference/config/next-config-js/rewrites) 路由请求以最小化请求的延迟开销，但当路由时需要动态决策时也可以使用代理。例如，如果你正在使用功能标志来决定路径应该路由到哪里（例如在迁移期间），你可以使用代理。
+
+```js filename="proxy.js"
+export async function proxy(request) {
+  const { pathname, search } = req.nextUrl;
+  if (pathname === '/your-path' && myFeatureFlag.isEnabled()) {
+    return NextResponse.rewrite(`${rewriteDomain}${pathname}${search});
+  }
+}
+```
+
+## 在 zone 之间链接
+
+指向不同 zone 中路径的链接应该使用 `a` 标签，而不是 Next.js 的 [`<Link>`](/docs/pages/api-reference/components/link) 组件。这是因为 Next.js 会尝试预取并软导航到 `<Link>` 组件中的任何相对路径，这在跨 zone 时不起作用。
+
+## 共享代码
+
+构成不同 zone 的 Next.js 应用程序可以位于任何仓库中。但是，通常方便的做法是将这些 zone 放在 [monorepo](https://en.wikipedia.org/wiki/Monorepo) 中，以更轻松地共享代码。对于位于不同仓库中的 zone，也可以使用公共或私有 NPM 包来共享代码。
+
+由于不同 zone 中的页面可能在不同时间发布，功能标志对于在不同 zone 之间统一启用或禁用功能非常有用。
+
+<AppOnly>
+
+## Server Actions
+
+在 Multi-Zones 中使用 [Server Actions](/docs/app/getting-started/updating-data) 时，你必须明确允许面向用户的源，因为你面向用户的域名可能服务多个应用程序。在你的 `next.config.js` 文件中，添加以下行：
+
+```js filename="next.config.js"
+const nextConfig = {
+  experimental: {
+    serverActions: {
+      allowedOrigins: ['your-production-domain.com'],
+    },
+  },
+}
+```
+
+有关更多信息，请参阅 [`serverActions.allowedOrigins`](/docs/app/api-reference/config/next-config-js/serverActions#allowedorigins)。
+
+</AppOnly>

@@ -1,0 +1,50 @@
+---
+title: optimizePackageImports
+slug: /docs/app/api-reference/config/next-config-js/optimizePackageImports
+description: optimizePackageImports Next.js 配置选项的 API 参考
+---
+
+{/* 此文档内容在应用和页面路由器之间共享。你可以使用 `<PagesOnly>Content</PagesOnly>` 组件添加特定于页面路由器的内容。任何共享内容不应包装在组件中。 */}
+
+某些包可以导出数百或数千个模块，这可能会导致开发和生产中的性能问题。
+
+将一个包添加到 `experimental.optimizePackageImports` 将仅加载你实际使用的模块，同时仍然为你提供编写具有许多命名导出的导入语句的便利。
+
+```js filename="next.config.js"
+module.exports = {
+  experimental: {
+    optimizePackageImports: ["package-name"],
+  },
+};
+```
+
+以下库默认进行了优化：
+
+- `lucide-react`
+- `date-fns`
+- `lodash-es`
+- `ramda`
+- `antd`
+- `react-bootstrap`
+- `ahooks`
+- `@ant-design/icons`
+- `@headlessui/react`
+- `@headlessui-float/react`
+- `@heroicons/react/20/solid`
+- `@heroicons/react/24/solid`
+- `@heroicons/react/24/outline`
+- `@visx/visx`
+- `@tremor/react`
+- `rxjs`
+- `@mui/material`
+- `@mui/icons-material`
+- `recharts`
+- `react-use`
+- `@material-ui/core`
+- `@material-ui/icons`
+- `@tabler/icons-react`
+- `mui-core`
+- `react-icons/*`
+- `effect`
+- `@effect/*`
+

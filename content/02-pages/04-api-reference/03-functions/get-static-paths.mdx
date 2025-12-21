@@ -1,0 +1,259 @@
+---
+title: getStaticPaths
+description: getStaticPaths 的 API 参考。学习如何使用 getStaticPaths 获取数据并生成静态页面。
+slug: /docs/pages/api-reference/functions/get-static-paths
+---
+
+当从使用[动态路由](/docs/pages/building-your-application/routing/dynamic-routes)的页面中导出一个名为 `getStaticPaths` 的函数时，Next.js 将静态预渲染 `getStaticPaths` 指定的所有路径。
+
+```tsx filename="pages/repo/[name].tsx" switcher
+import type {
+  InferGetStaticPropsType,
+  GetStaticProps,
+  GetStaticPaths,
+} from 'next'
+
+type Repo = {
+  name: string
+  stargazers_count: number
+}
+
+export const getStaticPaths = (async () => {
+  return {
+    paths: [
+      {
+        params: {
+          name: 'next.js',
+        },
+      }, // 参见下面的 "paths" 部分
+    ],
+    fallback: true, // false 或 "blocking"
+  }
+}) satisfies GetStaticPaths
+
+export const getStaticProps = (async (context) => {
+  const res = await fetch('https://api.github.com/repos/vercel/next.js')
+  const repo = await res.json()
+  return { props: { repo } }
+}) satisfies GetStaticProps<{
+  repo: Repo
+}>
+
+export default function Page({
+  repo,
+}: InferGetStaticPropsType<typeof getStaticProps>) {
+  return repo.stargazers_count
+}
+```
+
+```jsx filename="pages/repo/[name].js" switcher
+export async function getStaticPaths() {
+  return {
+    paths: [
+      {
+        params: {
+          name: 'next.js',
+        },
+      }, // 参见下面的 "paths" 部分
+    ],
+    fallback: true, // false 或 "blocking"
+  }
+}
+
+export async function getStaticProps() {
+  const res = await fetch('https://api.github.com/repos/vercel/next.js')
+  const repo = await res.json()
+  return { props: { repo } }
+}
+
+export default function Page({ repo }) {
+  return repo.stargazers_count
+}
+```
+
+## getStaticPaths 返回值
+
+`getStaticPaths` 函数应该返回一个包含以下**必需**属性的对象：
+
+### `paths`
+
+`paths` 键决定哪些路径将被预渲染。例如，假设你有一个使用[动态路由](/docs/pages/building-your-application/routing/dynamic-routes)的页面，名为 `pages/posts/[id].js`。如果你从这个页面导出 `getStaticPaths` 并为 `paths` 返回以下内容：
+
+```js
+return {
+  paths: [
+    { params: { id: '1' }},
+    {
+      params: { id: '2' },
+      // 配置了 i18n 后，也可以返回路径的 locale
+      locale: "en",
+    },
+  ],
+  fallback: ...
+}
+```
+
+然后，Next.js 将在 `next build` 期间使用 `pages/posts/[id].js` 中的页面组件静态生成 `/posts/1` 和 `/posts/2`。
+
+每个 `params` 对象的值必须与页面名称中使用的参数匹配：
+
+- 如果页面名称是 `pages/posts/[postId]/[commentId]`，那么 `params` 应该包含 `postId` 和 `commentId`。
+- 如果页面名称使用[捕获所有路由](/docs/pages/building-your-application/routing/dynamic-routes#catch-all-segments)，如 `pages/[...slug]`，那么 `params` 应该包含 `slug`（这是一个数组）。如果这个数组是 `['hello', 'world']`，那么 Next.js 将静态生成位于 `/hello/world` 的页面。
+- 如果页面使用[可选的捕获所有路由](/docs/pages/building-your-application/routing/dynamic-routes#optional-catch-all-segments)，使用 `null`、`[]`、`undefined` 或 `false` 来渲染最根部的路由。例如，如果你为 `pages/[[...slug]]` 提供 `slug: false`，Next.js 将静态生成页面 `/`。
+
+`params` 字符串是**区分大小写的**，理想情况下应该被规范化以确保路径被正确生成。例如，如果为参数返回 `WoRLD`，它只会在实际访问的路径是 `WoRLD` 时匹配，而不是 `world` 或 `World`。
+
+除了 `params` 对象之外，当[配置了 i18n](/docs/pages/guides/internationalization) 时，还可以返回一个 `locale` 字段，它为正在生成的路径配置 locale。
+
+### `fallback: false`
+
+如果 `fallback` 是 `false`，那么任何未被 `getStaticPaths` 返回的路径都将导致 **404 页面**。
+
+当运行 `next build` 时，Next.js 将检查 `getStaticPaths` 是否返回了 `fallback: false`，然后它将**仅**构建 `getStaticPaths` 返回的路径。如果你需要创建的路径数量很少，或者新的页面数据不经常添加，这个选项很有用。如果你发现需要添加更多路径，并且你有 `fallback: false`，你将需要再次运行 `next build`，以便可以生成新路径。
+
+以下示例在名为 `pages/posts/[id].js` 的页面中预渲染一篇博客文章。博客文章列表将从 CMS 获取并由 `getStaticPaths` 返回。然后，对于每个页面，它使用 [`getStaticProps`](/docs/pages/building-your-application/data-fetching/get-static-props) 从 CMS 获取文章数据。
+
+```jsx filename="pages/posts/[id].js"
+function Post({ post }) {
+  // 渲染文章...
+}
+
+// 这个函数在构建时被调用
+export async function getStaticPaths() {
+  // 调用外部 API 端点来获取文章
+  const res = await fetch('https://.../posts')
+  const posts = await res.json()
+
+  // 根据文章获取我们想要预渲染的路径
+  const paths = posts.map((post) => ({
+    params: { id: post.id },
+  }))
+
+  // 我们只会在构建时预渲染这些路径。
+  // { fallback: false } 意味着其他路由应该返回 404。
+  return { paths, fallback: false }
+}
+
+// 这个函数也在构建时被调用
+export async function getStaticProps({ params }) {
+  // params 包含文章的 `id`。
+  // 如果路由是 /posts/1，那么 params.id 就是 1
+  const res = await fetch(`https://.../posts/${params.id}`)
+  const post = await res.json()
+
+  // 通过 props 将文章数据传递给页面
+  return { props: { post } }
+}
+
+export default Post
+```
+
+### `fallback: true`
+
+<details>
+  <summary>示例</summary>
+
+- [大量页面的静态生成](https://react-tweet.vercel.app/)
+
+</details>
+
+如果 `fallback` 是 `true`，那么 `getStaticProps` 的行为将以以下方式改变：
+
+- 从 `getStaticPaths` 返回的路径将在构建时通过 `getStaticProps` 渲染为 `HTML`。
+- 在构建时未生成的路径**不会**导致 404 页面。相反，Next.js 将在第一次请求此类路径时提供页面的["fallback"](#fallback-pages)版本。Web 爬虫（如 Google）不会被提供 fallback，而是路径的行为将如 [`fallback: 'blocking'`](#fallback-blocking) 中一样。
+- 当通过 `next/link` 或 `next/router`（客户端）导航到带有 `fallback: true` 的页面时，Next.js _不会_提供 fallback，而是页面的行为将如 [`fallback: 'blocking'`](#fallback-blocking) 中一样。
+- 在后台，Next.js 将静态生成请求的路径 `HTML` 和 `JSON`。这包括运行 `getStaticProps`。
+- 完成后，浏览器会接收生成的路径的 `JSON`。这将用于自动渲染具有所需 props 的页面。从用户的角度来看，页面将从 fallback 页面切换到完整页面。
+- 同时，Next.js 将此路径添加到预渲染页面列表中。对同一路径的后续请求将提供生成的页面，就像在构建时预渲染的其他页面一样。
+
+> **值得注意的是**：当使用 [`output: 'export'`](/docs/pages/guides/static-exports) 时，不支持 `fallback: true`。
+
+#### 什么时候 `fallback: true` 有用？
+
+如果你的应用有大量依赖于数据的静态页面（例如一个非常大的电子商务网站），`fallback: true` 很有用。如果你想预渲染所有产品页面，构建将需要很长时间。
+
+相反，你可以静态生成一小部分页面，并对其余页面使用 `fallback: true`。当有人请求尚未生成的页面时，用户将看到带有加载指示器或骨架组件的页面。
+
+不久之后，`getStaticProps` 完成，页面将使用请求的数据进行渲染。从现在开始，每个请求同一页面的人都将获得静态预渲染的页面。
+
+这确保了用户始终拥有快速的体验，同时保留快速构建和静态生成的好处。
+
+`fallback: true` 不会_更新_生成的页面，为此请查看[增量静态再生](/docs/pages/guides/incremental-static-regeneration)。
+
+### `fallback: 'blocking'`
+
+如果 `fallback` 是 `'blocking'`，`getStaticPaths` 未返回的新路径将等待 `HTML` 生成，与 SSR 相同（因此称为 _blocking_），然后缓存以供将来请求，因此每个路径只发生一次。
+
+`getStaticProps` 将表现如下：
+
+- 从 `getStaticPaths` 返回的路径将在构建时通过 `getStaticProps` 渲染为 `HTML`。
+- 在构建时未生成的路径**不会**导致 404 页面。相反，Next.js 将在第一次请求时进行 SSR 并返回生成的 `HTML`。
+- 完成后，浏览器会接收生成的路径的 `HTML`。从用户的角度来看，它将从"浏览器正在请求页面"过渡到"完整页面已加载"。没有加载/fallback 状态的闪烁。
+- 同时，Next.js 将此路径添加到预渲染页面列表中。对同一路径的后续请求将提供生成的页面，就像在构建时预渲染的其他页面一样。
+
+默认情况下，`fallback: 'blocking'` 不会_更新_生成的页面。要更新生成的页面，请结合使用 `fallback: 'blocking'` 和[增量静态再生](/docs/pages/guides/incremental-static-regeneration)。
+
+> **值得注意的是**：当使用 [`output: 'export'`](/docs/pages/guides/static-exports) 时，不支持 `fallback: 'blocking'`。
+
+### Fallback 页面
+
+在页面的"fallback"版本中：
+
+- 页面的 props 将为空。
+- 使用 [router](/docs/pages/api-reference/functions/use-router)，你可以检测是否正在渲染 fallback，`router.isFallback` 将为 `true`。
+
+以下示例展示了如何使用 `isFallback`：
+
+```jsx filename="pages/posts/[id].js"
+import { useRouter } from 'next/router'
+
+function Post({ post }) {
+  const router = useRouter()
+
+  // 如果页面尚未生成，这将在
+  // getStaticProps() 完成运行之前显示
+  if (router.isFallback) {
+    return <div>Loading...</div>
+  }
+
+  // 渲染文章...
+}
+
+// 这个函数在构建时被调用
+export async function getStaticPaths() {
+  return {
+    // 只有 `/posts/1` 和 `/posts/2` 在构建时生成
+    paths: [{ params: { id: '1' } }, { params: { id: '2' } }],
+    // 启用静态生成额外的页面
+    // 例如：`/posts/3`
+    fallback: true,
+  }
+}
+
+// 这个函数也在构建时被调用
+export async function getStaticProps({ params }) {
+  // params 包含文章的 `id`。
+  // 如果路由是 /posts/1，那么 params.id 就是 1
+  const res = await fetch(`https://.../posts/${params.id}`)
+  const post = await res.json()
+
+  // 通过 props 将文章数据传递给页面
+  return {
+    props: { post },
+    // 如果有请求进来，最多每秒重新生成一次文章
+    revalidate: 1,
+  }
+}
+
+export default Post
+```
+
+## 版本历史
+
+| 版本      | 变更                                                                                                                                                                 |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `v13.4.0` | [App Router](/docs/app/getting-started/fetching-data) 现在稳定，具有简化的数据获取，包括 [`generateStaticParams()`](/docs/app/api-reference/functions/generate-static-params) |
+| `v12.2.0` | [按需增量静态再生](/docs/pages/guides/incremental-static-regeneration#on-demand-revalidation-with-revalidatepath) 稳定。                                            |
+| `v12.1.0` | [按需增量静态再生](/docs/pages/guides/incremental-static-regeneration#on-demand-revalidation-with-revalidatepath) 引入（beta）。                                   |
+| `v9.5.0`  | 稳定的[增量静态再生](/docs/pages/guides/incremental-static-regeneration)                                                                                             |
+| `v9.3.0`  | `getStaticPaths` 引入。                                                                                                                                              |

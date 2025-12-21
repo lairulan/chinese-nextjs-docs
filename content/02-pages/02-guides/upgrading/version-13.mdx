@@ -1,0 +1,89 @@
+---
+title: How to upgrade to version 13
+nav_title: Version 13
+description: 将你的 Next.js 应用从版本 12 升级到 13。
+slug: /docs/pages/guides/upgrading/version-13
+---
+
+## 从 12 升级到 13
+
+要更新到 Next.js 版本 13，请使用你偏好的包管理器运行以下命令：
+
+```bash filename="Terminal"
+npm i next@13 react@latest react-dom@latest eslint-config-next@13
+```
+
+```bash filename="Terminal"
+yarn add next@13 react@latest react-dom@latest eslint-config-next@13
+```
+
+```bash filename="Terminal"
+pnpm i next@13 react@latest react-dom@latest eslint-config-next@13
+```
+
+```bash filename="Terminal"
+bun add next@13 react@latest react-dom@latest eslint-config-next@13
+```
+
+> **值得注意的是**： 如果你使用 TypeScript，请确保同时将 `@types/react` 和 `@types/react-dom` 升级到最新版本。
+
+### v13 概要
+
+- [支持的浏览器](/docs/architecture/supported-browsers)已更改为放弃对 Internet Explorer 的支持并针对现代浏览器。
+- 最低 Node.js 版本已从 12.22.0 提高到 16.14.0，因为 12.x 和 14.x 已经结束生命周期。
+- 最低 React 版本已从 17.0.2 提高到 18.2.0。
+- `swcMinify` 配置属性已从 `false` 更改为 `true`。更多信息请参见 [Next.js 编译器](/docs/architecture/nextjs-compiler)。
+- `next/image` 导入被重命名为 `next/legacy/image`。`next/future/image` 导入被重命名为 `next/image`。提供了[代码转换工具](/docs/pages/guides/upgrading/codemods#next-image-to-legacy-image)以安全自动地重命名你的导入。
+- `next/link` 的子元素不能再是 `<a>`。添加 `legacyBehavior` 属性以使用旧行为，或移除 `<a>` 以升级。提供了[代码转换工具](/docs/pages/guides/upgrading/codemods#new-link)以自动升级你的代码。
+- `target` 配置属性已被移除，由[输出文件追踪](/docs/pages/api-reference/config/next-config-js/output)取代。
+
+## 迁移共享功能
+
+Next.js 13 引入了一个新的 [`app` 目录](/docs/app)，带有新功能和约定。然而，升级到 Next.js 13 **不**要求使用新的 `app` 路由器。
+
+你可以继续使用 `pages`，同时使用在两个目录中都可用的新功能，如更新的 [Image 组件](#image-component)、[Link 组件](#link-component)、[Script 组件](#script-component) 和 [字体优化](#font-optimization)。
+
+### `<Image/>` 组件
+
+Next.js 12 通过临时导入 `next/future/image` 为 Image 组件引入了许多改进。这些改进包括减少客户端 JavaScript、更容易扩展和样式化图片、更好的可访问性以及原生浏览器懒加载。
+
+从 Next.js 13 开始，这种新行为现在成为 `next/image` 的默认行为。
+
+有两个代码转换工具可以帮助你迁移到新的 Image 组件：
+
+- [next-image-to-legacy-image](/docs/pages/guides/upgrading/codemods#next-image-to-legacy-image)：这个代码转换工具将安全自动地将 `next/image` 导入重命名为 `next/legacy/image`，以保持与 Next.js 12 相同的行为。我们建议运行这个代码转换工具以自动快速更新到 Next.js 13。
+- [next-image-experimental](/docs/pages/guides/upgrading/codemods#next-image-experimental)：运行前一个代码转换工具后，你可以选择运行这个实验性代码转换工具，将 `next/legacy/image` 升级到新的 `next/image`，这将移除未使用的属性并添加内联样式。请注意，这个代码转换工具是实验性的，只覆盖静态用法（如 `<Image src={img} layout="responsive" />`）但不包括动态用法（如 `<Image {...props} />`）。
+
+或者，你可以通过遵循[迁移指南](/docs/pages/guides/upgrading/codemods#next-image-experimental)手动更新，并查看[旧版比较](/docs/pages/api-reference/components/image-legacy#comparison)。
+
+### `<Link>` 组件
+
+[`<Link>` 组件](/docs/pages/api-reference/components/link)不再需要手动添加 `<a>` 标签作为子元素。这种行为在[版本 12.2](https://nextjs.org/blog/next-12-2)中作为实验选项添加，现在成为默认行为。在 Next.js 13 中，`<Link>` 始终渲染 `<a>` 并允许你将属性转发到底层标签。
+
+例如：
+
+```jsx
+import Link from 'next/link'
+
+// Next.js 12：必须嵌套 `<a>`，否则会被排除
+<Link href="/about">
+  <a>About</a>
+</Link>
+
+// Next.js 13：`<Link>` 始终在内部渲染 `<a>`
+<Link href="/about">
+  About
+</Link>
+```
+
+要将你的链接升级到 Next.js 13，你可以使用 [`new-link` 代码转换工具](/docs/pages/guides/upgrading/codemods#new-link)。
+
+### `<Script>` 组件
+
+[`next/script`](/docs/pages/api-reference/components/script) 的行为已更新，以同时支持 `pages` 和 `app`。如果逐步采用 `app`，请阅读[升级指南](/docs/pages/guides/upgrading)。
+
+### 字体优化
+
+以前，Next.js 通过内联字体 CSS 来帮助你优化字体。版本 13 引入了新的 [`next/font`](/docs/pages/api-reference/components/font) 模块，使你能够自定义字体加载体验，同时仍确保良好的性能和隐私。
+
+查看[优化字体](/docs/pages/api-reference/components/font)了解如何使用 `next/font`。

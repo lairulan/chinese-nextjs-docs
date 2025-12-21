@@ -1,0 +1,21 @@
+---
+title: mdxRs
+slug: /docs/app/api-reference/config/next-config-js/mdxRs
+description: 在 App 路由中使用新的 Rust 编译器来编译 MDX 文件。
+---
+
+与 `@next/mdx` 一起使用的实验性功能。使用新的 Rust 编译器来编译 MDX 文件。
+
+```js filename="next.config.js"
+const withMDX = require('@next/mdx')()
+
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  pageExtensions: ['ts', 'tsx', 'mdx'],
+  experimental: {
+    mdxRs: true,
+  },
+}
+
+module.exports = withMDX(nextConfig)
+```

@@ -1,0 +1,89 @@
+---
+title: 自定义 Webpack 配置
+nav_title: webpack
+description: 了解如何自定义 Next.js 使用的 webpack 配置
+slug: /docs/app/api-reference/config/next-config-js/webpack
+---
+
+{/* The content of this doc is shared between the app and pages router. You can use the `<PagesOnly>Content</PagesOnly>` component to add content that is specific to the Pages Router. Any shared content should not be wrapped in a component. */}
+
+> **值得注意的是**：webpack 配置的变更不在 semver 覆盖范围内，因此请自行承担风险
+
+在继续为你的应用添加自定义 webpack 配置之前，请确保 Next.js 尚未支持你的用例：
+
+<AppOnly>
+
+- [CSS imports](/docs/app/getting-started/css)
+- [CSS modules](/docs/app/getting-started/css#css-modules)
+- [Sass/SCSS imports](/docs/app/guides/sass)
+- [Sass/SCSS modules](/docs/app/guides/sass)
+
+</AppOnly>
+
+<PagesOnly>
+
+- [CSS imports](/docs/app/getting-started/css)
+- [CSS modules](/docs/app/getting-started/css)
+- [Sass/SCSS imports](/docs/pages/guides/sass)
+- [Sass/SCSS modules](/docs/pages/guides/sass)
+- [Customizing babel configuration](/docs/pages/guides/babel)
+
+</PagesOnly>
+
+一些常见的功能需求可以通过插件实现：
+
+- [@next/mdx](https://github.com/vercel/next.js/tree/canary/packages/next-mdx)
+- [@next/bundle-analyzer](https://github.com/vercel/next.js/tree/canary/packages/next-bundle-analyzer)
+
+为了扩展 `webpack` 的使用，你可以在 `next.config.js` 中定义一个扩展其配置的函数，如下所示：
+
+```js filename="next.config.js"
+module.exports = {
+  webpack: (
+    config,
+    { buildId, dev, isServer, defaultLoaders, nextRuntime, webpack }
+  ) => {
+    // 重要：返回修改后的配置
+    return config
+  },
+}
+```
+
+> `webpack` 函数会执行三次，两次用于服务器（nodejs / edge runtime），一次用于客户端。这允许你使用 `isServer` 属性来区分客户端和服务器配置。
+
+`webpack` 函数的第二个参数是一个对象，具有以下属性：
+
+- `buildId`：`String` - 构建 id，用作构建之间的唯一标识符。
+- `dev`：`Boolean` - 指示编译是否在开发模式下完成。
+- `isServer`：`Boolean` - 服务器端编译时为 `true`，客户端编译时为 `false`。
+- `nextRuntime`：`String | undefined` - 服务器端编译的目标运行时；可以是 `"edge"` 或 `"nodejs"`，客户端编译时为 `undefined`。
+- `defaultLoaders`：`Object` - Next.js 内部使用的默认加载器：
+  - `babel`：`Object` - 默认的 `babel-loader` 配置。
+
+`defaultLoaders.babel` 的使用示例：
+
+```js
+// 添加依赖于 babel-loader 的加载器的示例配置
+// 此源代码取自 @next/mdx 插件源码：
+// https://github.com/vercel/next.js/tree/canary/packages/next-mdx
+module.exports = {
+  webpack: (config, options) => {
+    config.module.rules.push({
+      test: /\.mdx/,
+      use: [
+        options.defaultLoaders.babel,
+        {
+          loader: '@mdx-js/loader',
+          options: pluginOptions.options,
+        },
+      ],
+    })
+
+    return config
+  },
+}
+```
+
+#### `nextRuntime`
+
+请注意，当 `nextRuntime` 为 `"edge"` 或 `"nodejs"` 时，`isServer` 为 `true`，`nextRuntime` 为 `"edge"` 目前仅用于 edge runtime 中的代理和 Server Components。

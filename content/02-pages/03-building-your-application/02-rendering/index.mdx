@@ -1,0 +1,22 @@
+---
+title: 渲染
+description: 学习 React 和 Next.js 中渲染的基本原理
+slug: /docs/pages/building-your-application/rendering
+---
+
+默认情况下，Next.js **预渲染**每个页面。这意味着 Next.js 提前为每个页面生成 HTML，而不是完全依赖客户端 JavaScript。预渲染可以提高性能和搜索引擎优化。
+
+每个生成的 HTML 都与该页面所需的最小 JavaScript 代码相关联。当浏览器加载页面时，其 JavaScript 代码运行并使页面完全交互（在 React 中，这个过程称为[水合](https://react.dev/reference/react-dom/client/hydrateRoot)）。
+
+### 预渲染
+
+Next.js 有两种预渲染形式：** 静态生成**和**服务器端渲染**。它们的区别在于**何时**为页面生成 HTML。
+
+- 静态生成：HTML 在**构建时**生成，并在每个请求中重复使用。
+- 服务器端渲染：HTML 在**每次请求**时生成。
+
+重要的是，Next.js 允许你为每个页面选择想要使用的预渲染形式。你可以通过对大多数页面使用静态生成，对其他页面使用服务器端渲染，来创建一个"混合"的 Next.js 应用。
+
+出于性能原因，我们建议使用静态生成而不是服务器端渲染。静态生成的页面可以被 CDN 缓存，无需额外配置即可提高性能。但在某些情况下，服务器端渲染可能是唯一的选择。
+
+你还可以将客户端数据获取与静态生成或服务器端渲染一起使用。这意味着页面的某些部分可以完全由客户端 JavaScript 渲染。要了解更多，请查看[数据获取](/docs/pages/building-your-application/data-fetching/client-side)文档。

@@ -1,0 +1,33 @@
+---
+title: Route Groups
+description: Route Groups 可以用于将你的 Next.js 应用程序划分为不同的部分。
+slug: /docs/app/api-reference/file-conventions/route-groups
+---
+
+Route Groups 是一种文件夹命名约定，可以让你按类别或团队组织路由。
+
+## 约定
+
+可以通过将文件夹名称用括号包裹来创建路由组：`(folderName)`。
+
+这种约定表示该文件夹仅用于组织目的，**不应包含**在路由的 URL 路径中。
+
+<Image
+  alt="使用路由组的示例文件夹结构"
+  srcLight="/light/project-organization-route-groups.png"
+  srcDark="/dark/project-organization-route-groups.png"
+  width="1600"
+  height="849"
+/>
+
+## 使用场景
+
+- 按团队、关注点或功能组织路由。
+- 定义多个[根布局](/docs/app/api-reference/file-conventions/layout#root-layout)。
+- 让特定路由段选择共享布局，同时将其他路由段排除在外。
+
+## 注意事项
+
+- **完整页面加载**：如果你在使用不同根布局的路由之间导航，将会触发完整页面重新加载。例如，从使用 `app/(shop)/layout.js` 的 `/cart` 导航到使用 `app/(marketing)/layout.js` 的 `/blog`。这**仅**适用于多个根布局的情况。
+- **路径冲突**：不同组中的路由不应解析为相同的 URL 路径。例如，`(marketing)/about/page.js` 和 `(shop)/about/page.js` 都会解析为 `/about` 并导致错误。
+- **顶层根布局**：如果你使用多个根布局而没有顶层 `layout.js` 文件，请确保你的主页路由（/）定义在其中一个路由组内，例如 `app/(marketing)/page.js`。

@@ -1,0 +1,124 @@
+---
+title: use client
+description: 了解如何使用 use client 指令在客户端渲染组件。
+slug: /docs/app/api-reference/directives/use-client
+---
+
+`'use client'` 指令声明了一个在**客户端**渲染组件的入口点，应该在创建需要客户端 JavaScript 能力的交互式用户界面（UI）时使用，例如状态管理、事件处理和访问浏览器 API。这是一个 React 特性。
+
+> **值得注意的是**：
+>
+> 你不需要在每个包含 Client Components 的文件中添加 `'use client'` 指令。你只需要将其添加到你想直接在 Server Components 中渲染的组件所在的文件中。`'use client'` 指令定义了客户端-服务器[边界](https://nextjs.org/docs/app/building-your-application/rendering#network-boundary)，从这类文件中导出的组件作为客户端的入口点。
+
+## 用法
+
+要声明 Client Components 的入口点，在文件**顶部**、任何导入语句之前添加 `'use client'` 指令：
+
+```tsx filename="app/components/counter.tsx" highlight={1} switcher
+'use client'
+
+import { useState } from 'react'
+
+export default function Counter() {
+  const [count, setCount] = useState(0)
+
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={() => setCount(count + 1)}>Increment</button>
+    </div>
+  )
+}
+```
+
+```jsx filename="app/components/counter.js" highlight={1} switcher
+'use client'
+
+import { useState } from 'react'
+
+export default function Counter() {
+  const [count, setCount] = useState(0)
+
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={() => setCount(count + 1)}>Increment</button>
+    </div>
+  )
+}
+```
+
+使用 `'use client'` 指令时，Client Components 的 props 必须是[可序列化的](https://react.dev/reference/rsc/use-client#serializable-types)。这意味着 props 需要采用 React 在从服务器向客户端发送数据时可以序列化的格式。
+
+```tsx filename="app/components/counter.tsx" highlight={4} switcher
+'use client'
+
+export default function Counter({
+  onClick /* ❌ 函数不可序列化 */,
+}) {
+  return (
+    <div>
+      <button onClick={onClick}>Increment</button>
+    </div>
+  )
+}
+```
+
+```jsx filename="app/components/counter.js" highlight={4} switcher
+'use client'
+
+export default function Counter({
+  onClick /* ❌ 函数不可序列化 */,
+}) {
+  return (
+    <div>
+      <button onClick={onClick}>Increment</button>
+    </div>
+  )
+}
+```
+
+## 在 Server Components 中嵌套 Client Components
+
+结合 Server 和 Client Components 可以让你构建既高性能又具有交互性的应用程序：
+
+1. **Server Components**：用于静态内容、数据获取和 SEO 友好的元素。
+2. **Client Components**：用于需要状态、副作用或浏览器 API 的交互式元素。
+3. **组件组合**：根据需要在 Server Components 中嵌套 Client Components，以便清晰地分离服务器和客户端逻辑。
+
+在以下示例中：
+
+- `Header` 是一个处理静态内容的 Server Component。
+- `Counter` 是一个在页面中启用交互性的 Client Component。
+
+```tsx filename="app/page.tsx" highlight={2,8} switcher
+import Header from './header'
+import Counter from './counter' // 这是一个 Client Component
+
+export default function Page() {
+  return (
+    <div>
+      <Header />
+      <Counter />
+    </div>
+  )
+}
+```
+
+```jsx filename="app/page.js" highlight={2,8} switcher
+import Header from './header'
+import Counter from './counter' // 这是一个 Client Component
+
+export default function Page() {
+  return (
+    <div>
+      <Header />
+      <Counter />
+    </div>
+  )
+}
+```
+
+## 参考
+
+查看 [React 文档](https://react.dev/reference/rsc/use-client)以获取有关 `'use client'` 的更多信息。

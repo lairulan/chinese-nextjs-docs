@@ -1,0 +1,577 @@
+---
+title: Cache Components
+description: 学习如何使用 Cache Components 并结合静态和动态渲染的优势。
+version: beta
+related:
+  title: 下一步
+  description: 了解更多关于 Cache Components 的配置选项。
+  links:
+    - app/api-reference/config/next-config-js/cacheComponents
+    - app/api-reference/directives/use-cache
+    - app/api-reference/functions/cacheLife
+    - app/api-reference/functions/cacheTag
+    - app/api-reference/functions/revalidateTag
+    - app/api-reference/functions/updateTag
+slug: /docs/app/getting-started/cache-components
+---
+
+Cache Components 是 Next.js 中一种新的渲染和缓存方法，它提供了对缓存内容和时机的精细控制，同时通过 **Partial Prerendering (PPR)** 确保出色的用户体验。
+
+## Cache Components
+
+在开发动态应用程序时，你必须在两种主要方法之间取得平衡：
+
+- **完全静态的页面**加载速度快，但无法显示个性化或实时数据
+- **完全动态的页面**可以显示最新数据，但需要在每次请求时渲染所有内容，导致初始加载速度较慢
+
+启用 Cache Components 后，Next.js **默认将所有路由视为动态的**。每次请求都使用最新的可用数据进行渲染。然而，大多数页面都由静态和动态部分组成，并非所有动态数据都需要在每次请求时从源解析。
+
+Cache Components 允许你将数据甚至 UI 的部分标记为可缓存，这会将它们与页面的静态部分一起包含在预渲染过程中。
+
+> **在 Cache Components 之前**，Next.js 尝试自动静态优化**整个**页面，这可能在添加动态代码时导致意外行为。
+
+Cache Components 实现了 **Partial Prerendering (PPR)** 和 `use cache`，为你提供两全其美的解决方案：
+
+<Image
+  alt="部分重新渲染的产品页面，显示静态导航和产品信息，以及动态购物车和推荐产品"
+  srcLight="/light/thinking-in-ppr.png"
+  srcDark="/dark/thinking-in-ppr.png"
+  width="1600"
+  height="632"
+/>
+
+当用户访问路由时：
+
+- 服务器发送包含缓存内容的**静态外壳**，确保快速的初始加载
+- 包裹在 `Suspense` 边界中的动态部分在外壳中显示后备 UI
+- 只有动态部分进行渲染以替换其后备内容，在准备就绪时并行流式传输
+- 你可以通过使用 `use cache` 缓存原本动态的数据，将其包含在初始外壳中
+
+> **🎥 观看：** 为什么使用 PPR 以及它如何工作 → [YouTube（10 分钟）](https://www.youtube.com/watch?v=MTcPrTIBkpA)。
+
+## 工作原理
+
+> **值得注意的是：** Cache Components 是一个可选功能。通过在 Next 配置文件中将 `cacheComponents` 标志设置为 `true` 来启用它。有关更多详细信息，请参阅[启用 Cache Components](#enabling-cache-components)。
+
+Cache Components 为你提供三个关键工具来控制渲染：
+
+### 1. 使用 Suspense 处理运行时数据
+
+某些数据仅在实际用户发出请求时的运行时才可用。诸如 [`cookies`](/docs/app/api-reference/functions/cookies)、[`headers`](/docs/app/api-reference/functions/headers) 和 [`searchParams`](/docs/app/api-reference/file-conventions/page#searchparams-optional) 等 API 访问特定于请求的信息。将使用这些 API 的组件包裹在 `Suspense` 边界中，以便页面的其余部分可以作为静态外壳进行预渲染。
+
+**运行时 API 包括：**
+
+- [`cookies`](/docs/app/api-reference/functions/cookies)
+- [`headers`](/docs/app/api-reference/functions/headers)
+- [`searchParams` prop](/docs/app/api-reference/file-conventions/page#searchparams-optional)
+- [`params` prop](/docs/app/api-reference/file-conventions/page#params-optional) - 这是运行时数据，除非你通过 [`generateStaticParams`](/docs/app/api-reference/functions/generate-static-params) 提供至少一个示例值。提供后，这些特定的参数值对于预渲染路径被视为静态，而其他值保持运行时
+
+### 2. 使用 Suspense 处理动态数据
+
+动态数据，如 [`fetch`](/docs/app/api-reference/functions/fetch) 调用或数据库查询（`db.query(...)`），可能在请求之间发生变化，但不是用户特定的。[`connection`](/docs/app/api-reference/functions/connection) API 是元动态的——它表示等待用户导航，即使没有实际数据要返回。将使用这些的组件包裹在 `Suspense` 边界中以启用流式传输。
+
+**动态数据模式包括：**
+
+- [`fetch`](/docs/app/api-reference/functions/fetch) 请求
+- 数据库查询
+- [`connection`](/docs/app/api-reference/functions/connection)
+
+### 3. 使用 `use cache` 缓存数据
+
+将 `use cache` 添加到任何 Server Component 以使其被缓存并包含在预渲染的外壳中。你不能在缓存组件内部使用运行时 API。你还可以将工具函数标记为 `use cache` 并从 Server Components 调用它们。
+
+```tsx
+export async function getProducts() {
+  'use cache'
+  const data = await db.query('SELECT * FROM products')
+  return data
+}
+```
+
+## 使用 Suspense 边界
+
+React [Suspense](https://react.dev/reference/react/Suspense) 边界允许你定义在包裹动态或运行时数据时使用的后备 UI。
+
+边界外的内容（包括后备 UI）作为静态外壳进行预渲染，而边界内的内容在准备就绪时流式传输。
+
+以下是如何将 `Suspense` 与 Cache Components 一起使用：
+
+```tsx filename="app/page.tsx" switcher
+import { Suspense } from 'react'
+
+export default function Page() {
+  return (
+    <>
+      <h1>这将被预渲染</h1>
+      <Suspense fallback={<Skeleton />}>
+        <DynamicContent />
+      </Suspense>
+    </>
+  )
+}
+
+async function DynamicContent() {
+  const res = await fetch('http://api.cms.com/posts')
+  const { posts } = await res.json()
+  return <div>{/* ... */}</div>
+}
+```
+
+```jsx filename="app/page.js" switcher
+import { Suspense } from 'react'
+
+export default function Page() {
+  return (
+    <>
+      <h1>这将被预渲染</h1>
+      <Suspense fallback={<Skeleton />}>
+        <DynamicContent />
+      </Suspense>
+    </>
+  )
+}
+
+async function DynamicContent() {
+  const res = await fetch('http://api.cms.com/posts')
+  const { posts } = await res.json()
+  return <div>{/* ... */}</div>
+}
+```
+
+在构建时，Next.js 预渲染静态内容和 `fallback` UI，而动态内容将推迟到用户请求路由时。
+
+> **值得注意的是**：将组件包裹在 `Suspense` 中不会使其变为动态；你的 API 使用会。`Suspense` 充当封装动态内容并启用流式传输的边界。
+
+### 缺失的 Suspense 边界
+
+Cache Components 强制要求动态代码必须包裹在 `Suspense` 边界中。如果你忘记了，你会看到 [在 `<Suspense>` 外部访问了未缓存的数据](https://nextjs.org/docs/messages/blocking-route) 错误：
+
+> **在 `<Suspense>` 外部访问了未缓存的数据**
+>
+> 这会延迟整个页面的渲染，导致用户体验缓慢。Next.js 使用此错误来确保你的应用在每次导航时都能立即加载。
+>
+> 要解决此问题，你可以：
+>
+> **将组件包裹在 `<Suspense>` 边界中**。这允许 Next.js 在内容准备就绪时立即将其流式传输给用户，而不会阻塞应用的其余部分。
+>
+> 或
+>
+> **将异步 await 移至 Cache Component（"use cache"）**。这允许 Next.js 将组件作为 HTML 文档的一部分进行静态预渲染，因此用户可以立即看到它。
+>
+> 请注意，特定于请求的信息，如 params、cookies 和 headers，在静态预渲染期间不可用，因此必须包裹在 `<Suspense>` 中。
+
+此错误有助于防止出现这样的情况：用户不是立即获得静态外壳，而是遇到阻塞运行时渲染且没有任何内容显示。要解决此问题，请添加 `Suspense` 边界或使用 `use cache` 来缓存工作。
+
+### 流式传输的工作原理
+
+流式传输将路由分割成块，并在准备就绪时逐步将它们流式传输到客户端。这允许用户在整个内容完成渲染之前立即看到页面的部分内容。
+
+<Image
+  alt="显示客户端上部分渲染的页面的图表，正在流式传输的块显示加载 UI"
+  srcLight="/light/server-rendering-with-streaming.png"
+  srcDark="/dark/server-rendering-with-streaming.png"
+  width="1600"
+  height="785"
+/>
+
+通过部分预渲染，初始 UI 可以立即发送到浏览器，同时动态部分进行渲染。这减少了 UI 的时间，并且可能会减少总请求时间，具体取决于预渲染的 UI 量。
+
+<Image
+  alt="显示流式传输期间路由段并行化的图表，显示各个块的数据获取、渲染和水合"
+  srcLight="/light/sequential-parallel-data-fetching.png"
+  srcDark="/dark/sequential-parallel-data-fetching.png"
+  width="1600"
+  height="525"
+/>
+
+为了减少网络开销，完整响应（包括静态 HTML 和流式动态部分）在**单个 HTTP 请求**中发送。这避免了额外的往返，并改善了初始加载和整体性能。
+
+## 使用 `use cache`
+
+虽然 `Suspense` 边界管理动态内容，但 [`use cache`](/docs/app/api-reference/directives/use-cache) 指令可用于缓存不经常更改的数据或计算。
+
+### 基本用法
+
+添加 `use cache` 来缓存页面、组件或异步函数，并使用 [`cacheLife`](/docs/app/api-reference/functions/cacheLife) 定义生命周期：
+
+```tsx filename="app/page.tsx" highlight={1,4,5} switcher
+import { cacheLife } from 'next/cache'
+
+export default async function Page() {
+  'use cache'
+  cacheLife('hours')
+  // fetch 或计算
+  return <div>...</div>
+}
+```
+
+```jsx filename="app/page.js" highlight={1,4,5} switcher
+import { cacheLife } from 'next/cache'
+
+export default async function Page() {
+  'use cache'
+  cacheLife('hours')
+  // fetch 或计算
+  return <div>...</div>
+}
+```
+
+### 注意事项
+
+使用 `use cache` 时，请记住这些限制：
+
+#### 参数必须可序列化
+
+与 Server Actions 一样，缓存函数的参数必须可序列化。这意味着你可以传递原始类型、普通对象和数组，但不能传递类实例、函数或其他复杂类型。
+
+#### 接受不可序列化的值而不进行内省
+
+只要不对其进行内省，你就可以接受不可序列化的值作为参数。但是，你可以返回它们。这允许缓存组件接受 Server 或 Client Components 作为 children 的模式：
+
+```tsx filename="app/cached-wrapper.tsx" switcher
+import { ReactNode } from 'react'
+
+export async function CachedWrapper({ children }: { children: ReactNode }) {
+  'use cache'
+  // 不要内省 children，只需传递它
+  return (
+    <div className="wrapper">
+      <header>缓存的头部</header>
+      {children}
+    </div>
+  )
+}
+```
+
+```jsx filename="app/cached-wrapper.js" switcher
+export async function CachedWrapper({ children }) {
+  'use cache'
+  // 不要内省 children，只需传递它
+  return (
+    <div className="wrapper">
+      <header>缓存的头部</header>
+      {children}
+    </div>
+  )
+}
+```
+
+#### 避免传递动态输入
+
+除非你避免对其进行内省，否则不得将动态或运行时数据传递到 `use cache` 函数中。将来自 `cookies()`、`headers()` 或其他运行时 API 的值作为参数传递将导致错误，因为无法在预渲染时确定缓存键。
+
+### 标记和重新验证
+
+使用 [`cacheTag`](/docs/app/api-reference/functions/cacheTag) 标记缓存数据，并在 Server Actions 中使用 [`updateTag`](/docs/app/api-reference/functions/updateTag) 进行变更后立即更新，或者如果可以接受延迟更新，则使用 [`revalidateTag`](/docs/app/api-reference/functions/revalidateTag)。
+
+#### 使用 `updateTag`
+
+当你需要在同一请求中使缓存数据过期并立即刷新时，使用 `updateTag`：
+
+```tsx filename="app/actions.ts" highlight={1,4,5,13}
+import { cacheTag, updateTag } from 'next/cache'
+
+export async function getCart() {
+  'use cache'
+  cacheTag('cart')
+  // 获取数据
+}
+
+export async function updateCart(itemId: string) {
+  'use server'
+  // 使用 itemId 写入数据
+  // 更新用户购物车
+  updateTag('cart')
+}
+```
+
+#### 使用 `revalidateTag`
+
+当你只想使具有 stale-while-revalidate 行为的正确标记的缓存条目失效时，使用 `revalidateTag`。这对于可以容忍最终一致性的静态内容来说是理想的。
+
+```tsx filename="app/actions.ts" highlight={1,4,5,12}
+import { cacheTag, revalidateTag } from 'next/cache'
+
+export async function getPosts() {
+  'use cache'
+  cacheTag('posts')
+  // 获取数据
+}
+
+export async function createPost(post: FormData) {
+  'use server'
+  // 使用 FormData 写入数据
+  revalidateTag('posts', 'max')
+}
+```
+
+有关更详细的解释和使用示例，请参阅 [`use cache` API 参考](/docs/app/api-reference/directives/use-cache)。
+
+## 启用 Cache Components
+
+你可以通过在 Next 配置文件中添加 [`cacheComponents`](/docs/app/api-reference/config/next-config-js/cacheComponents) 选项来启用 Cache Components（包括 PPR）：
+
+```ts filename="next.config.ts" highlight={4} switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  cacheComponents: true,
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" highlight={3} switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  cacheComponents: true,
+}
+
+module.exports = nextConfig
+```
+
+### 对路由段配置的影响
+
+启用 Cache Components 后，几个路由段配置选项不再需要或不再受支持。以下是变化内容以及如何迁移：
+
+#### `dynamic = "force-dynamic"`
+
+**不再需要。** 启用 Cache Components 后，所有页面默认都是动态的，因此此配置是不必要的。
+
+```tsx
+// 之前 - 不再需要
+export const dynamic = 'force-dynamic'
+
+export default function Page() {
+  return <div>...</div>
+}
+```
+
+```tsx
+// 之后 - 只需删除它，页面默认是动态的
+export default function Page() {
+  return <div>...</div>
+}
+```
+
+#### `dynamic = "force-static"`
+
+**替换为 `use cache`。** 你必须为关联路由的每个 Layout 和 Page 添加 `use cache`。
+
+注意：`force-static` 以前允许使用运行时 API，如 `cookies()`，但现在不再支持。如果你添加 `use cache` 并看到与运行时数据相关的错误，则必须删除运行时 API 的使用。
+
+```tsx
+// 之前
+export const dynamic = 'force-static'
+
+export default async function Page() {
+  const data = await fetch('https://api.example.com/data')
+  return <div>...</div>
+}
+```
+
+```tsx
+// 之后 - 改用 'use cache'
+export default async function Page() {
+  'use cache'
+  const data = await fetch('https://api.example.com/data')
+  return <div>...</div>
+}
+```
+
+#### `revalidate`
+
+**替换为 `cacheLife`。** 使用 `cacheLife` 函数来定义缓存持续时间，而不是路由段配置。
+
+```tsx
+// 之前
+export const revalidate = 3600 // 1 小时
+
+export default async function Page() {
+  return <div>...</div>
+}
+```
+
+```tsx
+// 之后 - 使用 cacheLife
+import { cacheLife } from 'next/cache'
+
+export default async function Page() {
+  'use cache'
+  cacheLife('hours')
+  return <div>...</div>
+}
+```
+
+#### `fetchCache`
+
+**不再需要。** 使用 `use cache` 时，缓存范围内的所有数据获取都会自动缓存，使 `fetchCache` 变得不必要。
+
+```tsx
+// 之前
+export const fetchCache = 'force-cache'
+```
+
+```tsx
+// 之后 - 使用 'use cache' 来控制缓存行为
+export default async function Page() {
+  'use cache'
+  // 这里的所有 fetch 都会被缓存
+  return <div>...</div>
+}
+```
+
+#### `runtime = 'edge'`
+
+**不受支持。** Cache Components 需要 Node.js 运行时，使用 [Edge Runtime](/docs/app/api-reference/edge) 时会抛出错误。
+
+## Cache Components 之前与之后
+
+了解 Cache Components 如何改变你的思维模式：
+
+### Cache Components 之前
+
+- **默认静态**：Next.js 尝试为你预渲染和缓存尽可能多的内容，除非你选择退出
+- **路由级控制**：像 `dynamic`、`revalidate`、`fetchCache` 这样的开关控制整个页面的缓存
+- **`fetch` 的局限性**：单独使用 `fetch` 是不完整的，因为它不涵盖直接数据库客户端或其他服务器端 IO。嵌套的 `fetch` 切换到动态（例如，`{ cache: 'no-store' }`）可能会无意中改变整个路由行为
+
+### 使用 Cache Components
+
+- **默认动态**：所有内容默认都是动态的。你通过在有帮助的地方添加 [`use cache`](/docs/app/api-reference/directives/use-cache) 来决定缓存哪些部分
+- **精细控制**：文件/组件/函数级别的 [`use cache`](/docs/app/api-reference/directives/use-cache) 和 [`cacheLife`](/docs/app/api-reference/functions/cacheLife) 可以精确控制你需要的缓存位置
+- **流式传输保持**：使用 `<Suspense>` 或 `loading.(js|tsx)` 文件来流式传输动态部分，同时外壳立即显示
+- **超越 `fetch`**：使用 `use cache` 指令，缓存可以应用于所有服务器 IO（数据库调用、API、计算），而不仅仅是 `fetch`。嵌套的 `fetch` 调用不会静默翻转整个路由，因为行为由显式缓存边界和 `Suspense` 控制
+
+## 示例
+
+### 动态 API
+
+访问运行时 API（如 `cookies()`）时，Next.js 只会预渲染此组件上方的后备 UI。
+
+在此示例中，我们没有定义后备内容，因此 Next.js 显示错误，指示我们提供一个。`<User />` 组件需要包裹在 `Suspense` 中，因为它使用 `cookies` API：
+
+```jsx filename="app/user.js" switcher
+import { cookies } from 'next/headers'
+
+export async function User() {
+  const session = (await cookies()).get('session')?.value
+  return '...'
+}
+```
+
+```tsx filename="app/user.tsx" switcher
+import { cookies } from 'next/headers'
+
+export async function User() {
+  const session = (await cookies()).get('session')?.value
+  return '...'
+}
+```
+
+现在我们在 User 组件周围有了 `Suspense` 边界，我们可以使用 Skeleton UI 预渲染 Page，并在特定用户发出请求时流式传输 `<User />` UI
+
+```tsx filename="app/page.tsx" switcher
+import { Suspense } from 'react'
+import { User, AvatarSkeleton } from './user'
+
+export default function Page() {
+  return (
+    <section>
+      <h1>这将被预渲染</h1>
+      <Suspense fallback={<AvatarSkeleton />}>
+        <User />
+      </Suspense>
+    </section>
+  )
+}
+```
+
+```jsx filename="app/page.js" switcher
+import { Suspense } from 'react'
+import { User, AvatarSkeleton } from './user'
+
+export default function Page() {
+  return (
+    <section>
+      <h1>这将被预渲染</h1>
+      <Suspense fallback={<AvatarSkeleton />}>
+        <User />
+      </Suspense>
+    </section>
+  )
+}
+```
+
+### 传递动态 props
+
+组件仅在访问值时才选择动态渲染。例如，如果你从 `<Page />` 组件读取 `searchParams`，则可以将此值作为 prop 转发到另一个组件：
+
+```tsx filename="app/page.tsx" switcher
+import { Table, TableSkeleton } from './table'
+import { Suspense } from 'react'
+
+export default function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort: string }>
+}) {
+  return (
+    <section>
+      <h1>这将被预渲染</h1>
+      <Suspense fallback={<TableSkeleton />}>
+        <Table searchParams={searchParams.then((search) => search.sort)} />
+      </Suspense>
+    </section>
+  )
+}
+```
+
+```jsx filename="app/page.js" switcher
+import { Table, TableSkeleton } from './table'
+import { Suspense } from 'react'
+
+export default function Page({ searchParams }) {
+  return (
+    <section>
+      <h1>这将被预渲染</h1>
+      <Suspense fallback={<TableSkeleton />}>
+        <Table searchParams={searchParams.then((search) => search.sort)} />
+      </Suspense>
+    </section>
+  )
+}
+```
+
+在 table 组件内部，从 `searchParams` 访问值将使组件变为动态，而页面的其余部分将被预渲染。
+
+```tsx filename="app/table.tsx" switcher
+export async function Table({ sortPromise }: { sortPromise: Promise<string> }) {
+  const sort = (await sortPromise) === 'true'
+  return '...'
+}
+```
+
+```jsx filename="app/table.js" switcher
+export async function Table({ sortPromise }) {
+  const sort = (await sortPromise) === 'true'
+  return '...'
+}
+```
+
+## 常见问题
+
+### 这会替代 Partial Prerendering (PPR) 吗？
+
+不会。Cache Components **实现了** PPR 作为一个功能。旧的实验性 PPR 标志已被移除，但 PPR 将继续存在。
+
+PPR 提供静态外壳和流式传输基础设施；`use cache` 让你在有益时将优化的动态输出包含在该外壳中。
+
+### 我应该首先缓存什么？
+
+你缓存的内容应该是你希望 UI 加载状态的函数。如果数据不依赖于运行时数据，并且你可以接受在一段时间内为多个请求提供缓存值，请使用 `use cache` 与 `cacheLife` 来描述该行为。
+
+对于具有更新机制的内容管理系统，考虑使用具有更长缓存持续时间的标签，并依赖 `revalidateTag` 将静态初始 UI 标记为准备重新验证。此模式允许你提供快速的缓存响应，同时仍在内容实际更改时更新内容，而不是提前使缓存过期。
+
+### 如何快速更新缓存内容？
+
+使用 [`cacheTag`](/docs/app/api-reference/functions/cacheTag) 标记你的缓存数据，然后触发 [`updateTag`](/docs/app/api-reference/functions/updateTag) 或 [`revalidateTag`](/docs/app/api-reference/functions/revalidateTag)。

@@ -1,0 +1,39 @@
+---
+title: viewTransition
+description: 在 App Router 中启用 React 的 ViewTransition API
+version: experimental
+slug: /docs/app/api-reference/config/next-config-js/viewTransition
+---
+
+`viewTransition` 是一个实验性标志，用于在 React 中启用新的 [View Transitions API](https://developer.mozilla.org/en-US/docs/Web/API/View_Transition_API)。这个 API 允许你利用原生的 View Transitions 浏览器 API 来创建 UI 状态之间的无缝过渡。
+
+要启用此功能，你需要在 `next.config.js` 文件中将 `viewTransition` 属性设置为 `true`。
+
+```js filename="next.config.js"
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  experimental: {
+    viewTransition: true,
+  },
+}
+
+module.exports = nextConfig
+```
+
+> 重要提示：`<ViewTransition>` 组件已经在 React 的 Canary 发布渠道中可用。
+> `experimental.viewTransition` 仅用于启用与 Next.js 功能的更深层集成，例如自动为导航
+> [添加 Transition types](https://react.dev/reference/react/addTransitionType)。Next.js 特定的 transition types 尚未实现。
+
+## 使用方法
+
+你可以在应用程序中从 React 导入 [`<ViewTransition>` 组件](https://react.dev/reference/react/ViewTransition)：
+
+```jsx
+import { ViewTransition } from 'react'
+```
+
+### 在线演示
+
+查看我们的 [Next.js View Transition 演示](https://view-transition-example.vercel.app)，了解此功能的实际效果。
+
+随着此 API 的发展，我们将更新文档并分享更多示例。但是，目前我们强烈建议不要在生产环境中使用此功能。

@@ -1,0 +1,135 @@
+---
+title: browserDebugInfoInTerminal
+description: 在开发过程中将浏览器控制台日志和错误转发到你的终端。
+version: experimental
+slug: /docs/app/api-reference/config/next-config-js/browserDebugInfoInTerminal
+---
+
+`experimental.browserDebugInfoInTerminal` 选项将源自浏览器的控制台输出和运行时错误转发到开发服务器终端。
+
+此选项默认禁用。启用后仅在开发模式下工作。
+
+## 用法
+
+启用转发：
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  experimental: {
+    browserDebugInfoInTerminal: true,
+  },
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  experimental: {
+    browserDebugInfoInTerminal: true,
+  },
+}
+
+module.exports = nextConfig
+```
+
+### 序列化限制
+
+深层嵌套的对象/数组会使用**合理的默认值**进行截断。你可以调整这些限制：
+
+- **depthLimit**：（可选）限制嵌套对象/数组的字符串化深度。默认值：5
+- **edgeLimit**：（可选）每个对象或数组包含的最大属性或元素数量。默认值：100
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  experimental: {
+    browserDebugInfoInTerminal: {
+      depthLimit: 5,
+      edgeLimit: 100,
+    },
+  },
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  experimental: {
+    browserDebugInfoInTerminal: {
+      depthLimit: 5,
+      edgeLimit: 100,
+    },
+  },
+}
+
+module.exports = nextConfig
+```
+
+### 源位置
+
+启用此功能时，默认包含源位置。
+
+```tsx filename="app/page.tsx" highlight={8}
+'use client'
+
+export default function Home() {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        console.log('Hello World')
+      }}
+    >
+      Click me
+    </button>
+  )
+}
+```
+
+点击按钮会在终端打印此消息。
+
+```bash filename="Terminal"
+[browser] Hello World (app/page.tsx:8:17)
+```
+
+要禁用它们，请设置 `showSourceLocation: false`。
+
+- **showSourceLocation**：在可用时包含源位置信息。
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  experimental: {
+    browserDebugInfoInTerminal: {
+      showSourceLocation: false,
+    },
+  },
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  experimental: {
+    browserDebugInfoInTerminal: {
+      showSourceLocation: false,
+    },
+  },
+}
+
+module.exports = nextConfig
+```
+
+| Version   | Changes                                   |
+| --------- | ----------------------------------------- |
+| `v15.4.0` | 引入 experimental `browserDebugInfoInTerminal` |

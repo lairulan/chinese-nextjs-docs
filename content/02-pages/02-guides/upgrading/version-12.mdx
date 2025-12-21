@@ -1,0 +1,154 @@
+---
+title: 如何升级到版本 12
+nav_title: Version 12
+description: 将你的 Next.js 应用从版本 11 升级到版本 12。
+slug: /docs/pages/guides/upgrading/version-12
+---
+
+要升级到版本 12，运行以下命令：
+
+```bash filename="Terminal"
+npm i next@12 react@17 react-dom@17 eslint-config-next@12
+```
+
+```bash filename="Terminal"
+yarn add next@12 react@17 react-dom@17 eslint-config-next@12
+```
+
+```bash filename="Terminal"
+pnpm up next@12 react@17 react-dom@17 eslint-config-next@12
+```
+
+```bash filename="Terminal"
+bun add next@12 react@17 react-dom@17 eslint-config-next@12
+```
+
+> **值得注意的是**： 如果你使用 TypeScript，请确保同时将 `@types/react` 和 `@types/react-dom` 升级到对应版本。
+
+### 升级到 12.2
+
+[Middleware](/docs/messages/middleware-upgrade-guide) - 如果你在 `12.2` 之前使用过 Middleware，请查看[升级指南](/docs/messages/middleware-upgrade-guide)获取更多信息。
+
+### 升级到 12.0
+
+[最低 Node.js 版本](https://nodejs.org/en/) - 最低 Node.js 版本已从 `12.0.0` 提升到 `12.22.0`，这是第一个支持原生 ES Modules 的 Node.js 版本。
+
+[最低 React 版本](https://react.dev/learn/add-react-to-an-existing-project) - 最低要求的 React 版本是 `17.0.2`。要升级，你可以在终端中运行以下命令：
+
+```bash filename="Terminal"
+npm install react@latest react-dom@latest
+
+yarn add react@latest react-dom@latest
+
+pnpm update react@latest react-dom@latest
+
+bun add react@latest react-dom@latest
+```
+
+#### SWC 替代 Babel
+
+Next.js 现在使用基于 Rust 的编译器 [SWC](https://swc.rs/) 来编译 JavaScript/TypeScript。这个新编译器在编译单个文件时比 Babel 快至多 17 倍，且 Fast Refresh 速度快至多 5 倍。
+
+Next.js 为具有[自定义 Babel 配置](/docs/pages/guides/babel)的应用提供完全向后兼容。Next.js 默认处理的所有转换，如 styled-jsx 和 `getStaticProps` / `getStaticPaths` / `getServerSideProps` 的 tree-shaking，都已移植到 Rust。
+
+当应用具有自定义 Babel 配置时，Next.js 将自动选择不使用 SWC 编译 JavaScript/Typescript，而是像 Next.js 11 中那样回退使用 Babel。
+
+许多目前需要自定义 Babel 转换的外部库集成将在不久的将来移植到基于 Rust 的 SWC 转换。这些包括但不限于：
+
+- Styled Components
+- Emotion
+- Relay
+
+为了优先开发能帮助你采用 SWC 的转换器，请在[此反馈讨论](https://github.com/vercel/next.js/discussions/30174)中提供你的 `.babelrc`。
+
+#### SWC 替代 Terser 进行压缩
+
+你可以通过在 `next.config.js` 中设置标志来选择使用 SWC 替代 Terser 进行 JavaScript 压缩，速度最多提升 7 倍：
+
+```js filename="next.config.js"
+module.exports = {
+  swcMinify: true,
+}
+```
+
+使用 SWC 进行压缩是一个可选标志，以确保在它成为 Next.js 12.1 中的默认选项之前，可以针对更多真实世界的 Next.js 应用进行测试。如果你对压缩有反馈，请在[此反馈讨论](https://github.com/vercel/next.js/discussions/30237)中提出。
+
+#### 改进了 styled-jsx CSS 解析
+
+在基于 Rust 的编译器基础上，我们实现了一个新的 CSS 解析器，该解析器基于 styled-jsx Babel 转换中使用的解析器。这个新解析器改进了对 CSS 的处理，现在当使用无效的 CSS 时会报错，而这些错误之前可能会被忽略并导致意外行为。
+
+由于这个变化，无效的 CSS 将在开发过程和 `next build` 期间抛出错误。此变更仅影响 styled-jsx 的使用。
+
+#### `next/image` 更改了包裹元素
+
+`next/image` 现在将 `<img>` 渲染在 `<span>` 内部，而不是 `<div>` 内部。
+
+如果你的应用有针对 span 的特定 CSS，如 `.container span`，升级到 Next.js 12 可能会错误地匹配 `<Image>` 组件内部的包裹元素。你可以通过将选择器限制为特定类来避免这种情况，例如 `.container span.item`，并使用该 className 更新相关组件，如 `<span className="item" />`。
+
+如果你的应用有针对 `next/image` 的 `<div>` 标签的特定 CSS，例如 `.container div`，它可能不再匹配。你可以更新选择器为 `.container span`，或者更好的方法是，添加一个新的 `<div className="wrapper">` 包裹 `<Image>` 组件，然后针对它，如 `.container .wrapper`。
+
+`className` 属性保持不变，仍然会传递给底层的 `<img>` 元素。
+
+更多信息请查看[文档](/docs/pages/api-reference/components/image#styling-images)。
+
+#### HMR 连接现在使用 WebSocket
+
+之前，Next.js 使用[服务器发送事件](https://developer.mozilla.org/docs/Web/API/Server-sent_events)连接来接收 HMR 事件。Next.js 12 现在使用 WebSocket 连接。
+
+在某些情况下，当代理请求到 Next.js 开发服务器时，你需要确保正确处理升级请求。例如，在 `nginx` 中，你需要添加以下配置：
+
+```nginx
+location /_next/webpack-hmr {
+    proxy_pass http://localhost:3000/_next/webpack-hmr;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+}
+```
+
+如果你使用的是 Apache (2.x)，你可以添加以下配置来启用服务器的 web sockets。检查端口、主机名和服务器名称。
+
+```
+<VirtualHost *:443>
+ # ServerName yourwebsite.local
+ ServerName "${WEBSITE_SERVER_NAME}"
+ ProxyPass / http://localhost:3000/
+ ProxyPassReverse / http://localhost:3000/
+ # Next.js 12 使用 websocket
+ <Location /_next/webpack-hmr>
+    RewriteEngine On
+    RewriteCond %{QUERY_STRING} transport=websocket [NC]
+    RewriteCond %{HTTP:Upgrade} websocket [NC]
+    RewriteCond %{HTTP:Connection} upgrade [NC]
+    RewriteRule /(.*) ws://localhost:3000/_next/webpack-hmr/$1 [P,L]
+    ProxyPass ws://localhost:3000/_next/webpack-hmr retry=0 timeout=30
+    ProxyPassReverse ws://localhost:3000/_next/webpack-hmr
+ </Location>
+</VirtualHost>
+```
+
+对于自定义服务器，如 `express`，你可能需要使用 `app.all` 来确保请求被正确传递，例如：
+
+```js
+app.all('/_next/webpack-hmr', (req, res) => {
+  nextjsRequestHandler(req, res)
+})
+```
+
+#### 已移除 Webpack 4 支持
+
+如果你已经在使用 webpack 5，可以跳过本节。
+
+Next.js 在 Next.js 11 中已将 webpack 5 作为编译的默认选项。正如在 [webpack 5 升级文档](/docs/messages/webpack5) 中所传达的，Next.js 12 移除了对 webpack 4 的支持。
+
+如果你的应用仍在使用选择退出标志来使用 webpack 4，你现在将看到一个链接到 [webpack 5 升级文档](/docs/messages/webpack5) 的错误。
+
+#### `target` 选项已弃用
+
+如果你在 `next.config.js` 中没有 `target`，可以跳过本节。
+
+target 选项已被弃用，取而代之的是内置支持跟踪运行页面所需的依赖项。
+
+在 `next build` 期间，Next.js 将自动跟踪每个页面及其依赖项，以确定部署应用的生产版本所需的所有文件。
+
+如果你当前使用的 `target` 选项设置为 `serverless`，请阅读[有关如何利用新输出的文档](/docs/pages/api-reference/config/next-config-js/output)。

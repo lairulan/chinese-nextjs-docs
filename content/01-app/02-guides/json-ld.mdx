@@ -1,0 +1,86 @@
+---
+title: 如何在 Next.js 应用中实现 JSON-LD
+nav_title: JSON-LD
+description: 学习如何在 Next.js 应用中添加 JSON-LD 以向搜索引擎和 AI 描述你的内容。
+slug: /docs/app/guides/json-ld
+---
+
+[JSON-LD](https://json-ld.org/) 是一种结构化数据格式，可以被搜索引擎和 AI 用来帮助它们理解页面结构，而不仅仅是纯内容。例如，你可以使用它来描述一个人、一个事件、一个组织、一部电影、一本书、一个食谱以及许多其他类型的实体。
+
+我们目前对 JSON-LD 的推荐做法是在你的 `layout.js` 或 `page.js` 组件中将结构化数据渲染为 `<script>` 标签。
+
+以下代码片段使用了 `JSON.stringify`，它不会清理用于 XSS 注入的恶意字符串。为了防止这种类型的漏洞，你可以从 `JSON-LD` 负载中清除 `HTML` 标签，例如，通过将字符 `<` 替换为其 unicode 等效字符 `\u003c`。
+
+请查阅你的组织推荐的方法来清理潜在危险的字符串，或使用社区维护的 `JSON.stringify` 替代方案，例如 [serialize-javascript](https://www.npmjs.com/package/serialize-javascript)。
+
+```tsx filename="app/products/[id]/page.tsx" switcher
+export default async function Page({ params }) {
+  const { id } = await params
+  const product = await getProduct(id)
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    image: product.image,
+    description: product.description,
+  }
+
+  return (
+    <section>
+      {/* 将 JSON-LD 添加到你的页面 */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c'),
+        }}
+      />
+      {/* ... */}
+    </section>
+  )
+}
+```
+
+```jsx filename="app/products/[id]/page.js" switcher
+export default async function Page({ params }) {
+  const { id } = await params
+  const product = await getProduct(id)
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    image: product.image,
+    description: product.description,
+  }
+
+  return (
+    <section>
+      {/* 将 JSON-LD 添加到你的页面 */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c'),
+        }}
+      />
+      {/* ... */}
+    </section>
+  )
+}
+```
+
+你可以使用 Google 的 [Rich Results Test](https://search.google.com/test/rich-results) 或通用的 [Schema Markup Validator](https://validator.schema.org/) 来验证和测试你的结构化数据。
+
+你可以使用社区包（如 [`schema-dts`](https://www.npmjs.com/package/schema-dts)）为你的 JSON-LD 添加 TypeScript 类型：
+
+```tsx
+import { Product, WithContext } from 'schema-dts'
+
+const jsonLd: WithContext<Product> = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: 'Next.js Sticker',
+  image: 'https://nextjs.org/imgs/sticker.png',
+  description: 'Dynamic at the speed of static.',
+}
+```

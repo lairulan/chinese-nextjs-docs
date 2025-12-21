@@ -1,0 +1,23 @@
+---
+title: reactStrictMode
+slug: /docs/app/api-reference/config/next-config-js/reactStrictMode
+description: Next.js 运行时现已完全兼容严格模式，了解如何启用
+---
+
+{/* 此文档的内容在 app 路由和 pages 路由之间共享。你可以使用 `<PagesOnly>Content</PagesOnly>` 组件来添加仅适用于 Pages 路由的内容。任何共享内容都不应该被组件包裹。*/}
+
+> **值得注意的是**：从 Next.js 13.5.1 开始，在使用 `app` 路由时严格模式默认为 `true`，因此上述配置仅对 `pages` 路由必要。你仍然可以通过设置 `reactStrictMode: false` 来禁用严格模式。
+
+> **建议**：我们强烈建议你在 Next.js 应用中启用严格模式，以便更好地为 React 的未来做好准备。
+
+React 的[严格模式](https://react.dev/reference/react/StrictMode)是一个仅用于开发环境的功能，用于突出应用中的潜在问题。它有助于识别不安全的生命周期、过时的 API 使用以及许多其他特性。
+
+Next.js 运行时完全兼容严格模式。要启用严格模式，请在 `next.config.js` 中配置以下选项：
+
+```js filename="next.config.js"
+module.exports = {
+  reactStrictMode: true,
+}
+```
+
+如果你或你的团队还没有准备好在整个应用中使用严格模式，也没关系！你可以使用 `<React.StrictMode>` 在逐页迁移的基础上逐步启用。

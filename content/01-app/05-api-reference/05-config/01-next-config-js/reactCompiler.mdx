@@ -1,0 +1,87 @@
+---
+title: reactCompiler
+description: 启用 React Compiler 以自动优化组件渲染。
+slug: /docs/app/api-reference/config/next-config-js/reactCompiler
+---
+
+Next.js 包含对 [React Compiler](https://react.dev/learn/react-compiler/introduction) 的支持，这是一个旨在通过自动优化组件渲染来提高性能的工具。这减少了使用 `useMemo` 和 `useCallback` 进行手动 memoization 的需求。
+
+Next.js 包含一个用 SWC 编写的自定义性能优化，使 React Compiler 更加高效。Next.js 不会在每个文件上运行编译器，而是分析你的项目并仅将 React Compiler 应用于相关文件。这避免了不必要的工作，相比单独使用 Babel 插件，可以实现更快的构建速度。
+
+## 工作原理
+
+React Compiler 通过 Babel 插件运行。为了保持快速构建，Next.js 使用自定义 SWC 优化，仅将 React Compiler 应用于相关文件——例如那些包含 JSX 或 React Hooks 的文件。
+
+这避免了编译所有内容，并将性能成本保持在最低水平。与默认的基于 Rust 的编译器相比，你可能仍然会看到稍慢的构建速度，但影响很小且局部化。
+
+要使用它，请安装 `babel-plugin-react-compiler`：
+
+```bash filename="Terminal"
+npm install -D babel-plugin-react-compiler
+```
+
+然后，在 `next.config.js` 中添加 `reactCompiler` 选项：
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  reactCompiler: true,
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactCompiler: true,
+}
+
+module.exports = nextConfig
+```
+
+## 注解
+
+你可以将编译器配置为以"选择加入"模式运行，如下所示：
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  reactCompiler: {
+    compilationMode: 'annotation',
+  },
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.js" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactCompiler: {
+    compilationMode: 'annotation',
+  },
+}
+
+module.exports = nextConfig
+```
+
+然后，你可以使用 React 的 `"use memo"` 指令注解特定的组件或 hooks 来选择加入：
+
+```ts filename="app/page.tsx" switcher
+export default function Page() {
+  'use memo'
+  // ...
+}
+```
+
+```js filename="app/page.js" switcher
+export default function Page() {
+  'use memo'
+  // ...
+}
+```
+
+> **注意：** 你也可以使用 React 的 `"use no memo"` 指令来实现相反的效果，选择退出某个组件或 hook。

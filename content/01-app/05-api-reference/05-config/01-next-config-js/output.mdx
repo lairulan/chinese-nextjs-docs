@@ -1,0 +1,159 @@
+---
+title: output
+description: Next.js 会自动追踪每个页面所需的文件，以便轻松部署你的应用程序。在此了解其工作原理。
+slug: /docs/app/api-reference/config/next-config-js/output
+---
+
+{/* The content of this doc is shared between the app and pages router. You can use the `<PagesOnly>Content</PagesOnly>` component to add content that is specific to the Pages Router. Any shared content should not be wrapped in a component. */}
+
+在构建期间，Next.js 会自动追踪每个页面及其依赖项，以确定部署应用程序生产版本所需的所有文件。
+
+此功能有助于大幅减小部署大小。以前，使用 Docker 部署时，你需要安装包的 `dependencies` 中的所有文件才能运行 `next start`。从 Next.js 12 开始，你可以利用 `.next/` 目录中的输出文件追踪功能，仅包含必要的文件。
+
+此外，这消除了对已弃用的 `serverless` 目标的需求，该目标可能会导致各种问题，并且还会创建不必要的重复。
+
+## 工作原理
+
+在 `next build` 期间，Next.js 将使用 [`@vercel/nft`](https://github.com/vercel/nft) 静态分析 `import`、`require` 和 `fs` 的使用情况，以确定页面可能加载的所有文件。
+
+Next.js 的生产服务器也会追踪其所需文件，并输出到 `.next/next-server.js.nft.json`，可在生产环境中使用。
+
+要利用输出到 `.next` 目录的 `.nft.json` 文件，你可以读取每个追踪中相对于 `.nft.json` 文件的文件列表，然后将它们复制到部署位置。
+
+## 自动复制追踪的文件
+
+Next.js 可以自动创建一个 `standalone` 文件夹，仅复制生产部署所需的必要文件，包括 `node_modules` 中的选定文件。
+
+要启用此自动复制功能，你可以在 `next.config.js` 中启用它：
+
+```js filename="next.config.js"
+module.exports = {
+  output: 'standalone',
+}
+```
+
+这将在 `.next/standalone` 创建一个文件夹，然后可以在不安装 `node_modules` 的情况下独立部署。
+
+此外，还会输出一个精简的 `server.js` 文件，可用于替代 `next start`。此精简服务器默认不会复制 `public` 或 `.next/static` 文件夹，因为理想情况下这些文件夹应由 CDN 处理，尽管可以手动将这些文件夹复制到 `standalone/public` 和 `standalone/.next/static` 文件夹，之后 `server.js` 文件将自动提供这些文件。
+
+要手动复制这些文件，你可以在 `next build` 后使用 `cp` 命令行工具：
+
+```bash filename="Terminal"
+cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/
+```
+
+要在本地启动精简的 `server.js` 文件，请运行以下命令：
+
+```bash filename="Terminal"
+node .next/standalone/server.js
+```
+
+<AppOnly>
+
+> **值得注意的是**：
+>
+> - 如果你的项目需要监听特定端口或主机名，你可以在运行 `server.js` 之前定义 `PORT` 或 `HOSTNAME` 环境变量。例如，运行 `PORT=8080 HOSTNAME=0.0.0.0 node server.js` 以在 `http://0.0.0.0:8080` 上启动服务器。
+
+</AppOnly>
+
+<PagesOnly>
+
+> **值得注意的是**：
+>
+> - `next.config.js` 在 `next build` 期间读取，并序列化到 `server.js` 输出文件中。
+> - 如果你的项目需要监听特定端口或主机名，你可以在运行 `server.js` 之前定义 `PORT` 或 `HOSTNAME` 环境变量。例如，运行 `PORT=8080 HOSTNAME=0.0.0.0 node server.js` 以在 `http://0.0.0.0:8080` 上启动服务器。
+
+</PagesOnly>
+
+## 注意事项
+
+- 在 monorepo 设置中进行追踪时，默认使用项目目录进行追踪。对于 `next build packages/web-app`，`packages/web-app` 将是追踪根目录，该文件夹外的任何文件都不会被包含。要包含此文件夹外的文件，你可以在 `next.config.js` 中设置 `outputFileTracingRoot`。
+
+```js filename="packages/web-app/next.config.js"
+const path = require('path')
+
+module.exports = {
+  // 这包含来自上两级 monorepo 基础目录的文件
+  outputFileTracingRoot: path.join(__dirname, '../../'),
+}
+```
+
+- 在某些情况下，Next.js 可能无法包含所需的文件，或者可能错误地包含未使用的文件。在这些情况下，你可以分别在 `next.config.js` 中使用 `outputFileTracingExcludes` 和 `outputFileTracingIncludes`。每个选项接受一个对象，其键是**路由 glob**（使用 [picomatch](https://www.npmjs.com/package/picomatch#basic-globbing) 与路由路径匹配，例如 `/api/hello`），其值是**从项目根目录解析的 glob 模式**，指定要在追踪中包含或排除的文件。
+
+> **值得注意的是**：
+> 在 monorepo 中，`project root` 指的是 Next.js 项目根目录（包含 next.config.js 的文件夹，例如 packages/web-app），不一定是 monorepo 根目录。
+
+```js filename="next.config.js"
+module.exports = {
+  outputFileTracingExcludes: {
+    '/api/hello': ['./un-necessary-folder/**/*'],
+  },
+  outputFileTracingIncludes: {
+    '/api/another': ['./necessary-folder/**/*'],
+    '/api/login/\\[\\[\\.\\.\\.slug\\]\\]': [
+      './node_modules/aws-crt/dist/bin/**/*',
+    ],
+  },
+}
+```
+
+使用 `src/` 目录不会改变你编写这些选项的方式：
+
+- **键**仍然匹配路由路径（`'/api/hello'`、`'/products/[id]'` 等）。
+- **值**可以引用 `src/` 下的路径，因为它们是相对于项目根目录解析的。
+
+```js filename="next.config.js"
+module.exports = {
+  outputFileTracingIncludes: {
+    '/products/*': ['src/lib/payments/**/*'],
+    '/*': ['src/config/runtime/**/*.json'],
+  },
+  outputFileTracingExcludes: {
+    '/api/*': ['src/temp/**/*', 'public/large-logs/**/*'],
+  },
+}
+```
+
+你还可以使用全局键（如 `'/*'`）来定位所有路由：
+
+```js filename="next.config.js"
+module.exports = {
+  outputFileTracingIncludes: {
+    '/*': ['src/i18n/locales/**/*.json'],
+  },
+}
+```
+
+这些选项应用于服务器追踪，不会影响不生成服务器追踪文件的路由：
+
+- Edge Runtime 路由不受影响。
+- 完全静态的页面不受影响。
+
+在 monorepo 中或当你需要包含应用文件夹外的文件时，将 `outputFileTracingRoot` 与 includes 结合使用：
+
+```js filename="next.config.js"
+const path = require('path')
+
+module.exports = {
+  // 从 monorepo 根目录追踪
+  outputFileTracingRoot: path.join(__dirname, '../../'),
+  outputFileTracingIncludes: {
+    '/route1': ['../shared/assets/**/*'],
+  },
+}
+```
+
+> **值得注意的是**：
+>
+> - 在模式中优先使用正斜杠（`/`）以实现跨平台兼容性。
+> - 尽可能缩小模式范围以避免过大的追踪（避免在仓库根目录使用 `**/*`）。
+
+原生/运行时资源的常见包含模式：
+
+```js filename="next.config.js"
+module.exports = {
+  outputFileTracingIncludes: {
+    '/*': ['node_modules/sharp/**/*', 'node_modules/aws-crt/dist/bin/**/*'],
+  },
+}
+```

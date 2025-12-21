@@ -1,0 +1,108 @@
+---
+title: 表单和数据变更
+nav_title: 表单和数据变更
+description: 学习如何使用 Next.js 处理表单提交和数据变更。
+slug: /docs/pages/building-your-application/data-fetching/forms-and-mutations
+---
+
+表单使你能够在 Web 应用程序中创建和更新数据。Next.js 提供了一种强大的方式来使用 **API Routes** 处理表单提交和数据变更。
+
+> **值得注意的是**：
+>
+> - 我们即将建议[逐步采用](/docs/app/guides/migrating/app-router-migration) App Router 并使用 [Server Actions](/docs/app/getting-started/updating-data) 来处理表单提交和数据变更。Server Actions 允许你定义异步服务器函数，这些函数可以直接从你的组件中调用，而无需手动创建 API Route。
+> - API Routes [不指定 CORS 头](https://developer.mozilla.org/docs/Web/HTTP/CORS)，这意味着它们默认仅限同源。
+> - 由于 API Routes 在服务器上运行，我们能够通过[环境变量](/docs/pages/guides/environment-variables)使用敏感值（如 API 密钥），而不会将它们暴露给客户端。这对于你的应用程序的安全性至关重要。
+
+## 示例
+
+### 重定向
+
+如果你想在数据变更后将用户重定向到不同的路由，可以使用 [`redirect`](/docs/pages/building-your-application/routing/api-routes#response-helpers) 重定向到任何绝对或相对 URL：
+
+```ts filename="pages/api/submit.ts" switcher
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  const id = await addPost()
+  res.redirect(307, `/post/${id}`)
+}
+```
+
+```js filename="pages/api/submit.js" switcher
+export default async function handler(req, res) {
+  const id = await addPost()
+  res.redirect(307, `/post/${id}`)
+}
+```
+
+### 设置 cookies
+
+你可以在 API Route 中使用响应上的 `setHeader` 方法设置 cookies：
+
+```ts filename="pages/api/cookie.ts" switcher
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  res.setHeader('Set-Cookie', 'username=lee; Path=/; HttpOnly')
+  res.status(200).send('Cookie has been set.')
+}
+```
+
+```js filename="pages/api/cookie.js" switcher
+export default async function handler(req, res) {
+  res.setHeader('Set-Cookie', 'username=lee; Path=/; HttpOnly')
+  res.status(200).send('Cookie has been set.')
+}
+```
+
+### 读取 cookies
+
+你可以在 API Route 中使用 [`cookies`](/docs/pages/building-your-application/routing/api-routes#request-helpers) 请求助手读取 cookies：
+
+```ts filename="pages/api/cookie.ts" switcher
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  const auth = req.cookies.authorization
+  // ...
+}
+```
+
+```js filename="pages/api/cookie.js" switcher
+export default async function handler(req, res) {
+  const auth = req.cookies.authorization
+  // ...
+}
+```
+
+### 删除 cookies
+
+你可以在 API Route 中使用响应上的 `setHeader` 方法删除 cookies：
+
+```ts filename="pages/api/cookie.ts" switcher
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  res.setHeader('Set-Cookie', 'username=; Path=/; HttpOnly; Max-Age=0')
+  res.status(200).send('Cookie has been deleted.')
+}
+```
+
+```js filename="pages/api/cookie.js" switcher
+export default async function handler(req, res) {
+  res.setHeader('Set-Cookie', 'username=; Path=/; HttpOnly; Max-Age=0')
+  res.status(200).send('Cookie has been deleted.')
+}
+```

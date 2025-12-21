@@ -1,0 +1,22 @@
+---
+title: onDemandEntries
+slug: /docs/app/api-reference/config/next-config-js/onDemandEntries
+description: 配置 Next.js 在开发环境中如何处理和保持页面在内存中。
+---
+
+{/* 此文档的内容在 app 路由和 pages 路由之间共享。你可以使用 `<PagesOnly>Content</PagesOnly>` 组件来添加仅适用于 Pages 路由的内容。任何共享内容都不应该被组件包裹。*/}
+
+Next.js 提供了一些选项，让你可以控制服务器在开发环境中如何处理或在内存中保持已构建的页面。
+
+要修改默认设置，打开 `next.config.js` 并添加 `onDemandEntries` 配置：
+
+```js filename="next.config.js"
+module.exports = {
+  onDemandEntries: {
+    // 服务器在缓冲区中保持页面的时间周期（单位：毫秒）
+    maxInactiveAge: 25 * 1000,
+    // 应该同时保持在内存中而不被释放的页面数量
+    pagesBufferLength: 2,
+  },
+}
+```

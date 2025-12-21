@@ -1,0 +1,275 @@
+---
+title: generateImageMetadata
+description: 学习如何在单个 Metadata API 特殊文件中生成多个图像。
+related:
+  title: Next Steps
+  description: 查看所有 Metadata API 选项。
+  links:
+    - app/api-reference/file-conventions/metadata
+slug: /docs/app/api-reference/functions/generate-image-metadata
+---
+
+你可以使用 `generateImageMetadata` 为一个图像生成不同的版本，或为一个路由段返回多个图像。这在你想要避免硬编码元数据值时非常有用，例如用于图标。
+
+## 参数
+
+`generateImageMetadata` 函数接受以下参数：
+
+#### `params`（可选）
+
+一个对象，包含从根段到调用 `generateImageMetadata` 的段的[动态路由参数](/docs/app/api-reference/file-conventions/dynamic-routes)对象。
+
+```tsx filename="icon.tsx" switcher
+export function generateImageMetadata({
+  params,
+}: {
+  params: { slug: string }
+}) {
+  // ...
+}
+```
+
+```jsx filename="icon.js" switcher
+export function generateImageMetadata({ params }) {
+  // ...
+}
+```
+
+| 路由                            | URL         | `params`                  |
+| ------------------------------- | ----------- | ------------------------- |
+| `app/shop/icon.js`              | `/shop`     | `undefined`               |
+| `app/shop/[slug]/icon.js`       | `/shop/1`   | `{ slug: '1' }`           |
+| `app/shop/[tag]/[item]/icon.js` | `/shop/1/2` | `{ tag: '1', item: '2' }` |
+
+## 返回值
+
+`generateImageMetadata` 函数应该返回一个包含图像元数据（如 `alt` 和 `size`）的对象 `array`。此外，每个项目**必须**包含一个 `id` 值，该值将作为 promise 传递给图像生成函数的 props。
+
+| 图像元数据对象 | 类型                                |
+| --------------------- | ----------------------------------- |
+| `id`                  | `string`（必需）                 |
+| `alt`                 | `string`                            |
+| `size`                | `{ width: number; height: number }` |
+| `contentType`         | `string`                            |
+
+```tsx filename="icon.tsx" switcher
+import { ImageResponse } from 'next/og'
+
+export function generateImageMetadata() {
+  return [
+    {
+      contentType: 'image/png',
+      size: { width: 48, height: 48 },
+      id: 'small',
+    },
+    {
+      contentType: 'image/png',
+      size: { width: 72, height: 72 },
+      id: 'medium',
+    },
+  ]
+}
+
+export default async function Icon({ id }: { id: Promise<string | number> }) {
+  const iconId = await id
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 88,
+          background: '#000',
+          color: '#fafafa',
+        }}
+      >
+        Icon {iconId}
+      </div>
+    )
+  )
+}
+```
+
+```jsx filename="icon.js" switcher
+import { ImageResponse } from 'next/og'
+
+export function generateImageMetadata() {
+  return [
+    {
+      contentType: 'image/png',
+      size: { width: 48, height: 48 },
+      id: 'small',
+    },
+    {
+      contentType: 'image/png',
+      size: { width: 72, height: 72 },
+      id: 'medium',
+    },
+  ]
+}
+
+export default async function Icon({ id }) {
+  const iconId = await id
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 88,
+          background: '#000',
+          color: '#fafafa',
+        }}
+      >
+        Icon {iconId}
+      </div>
+    )
+  )
+}
+```
+
+## 图像生成函数 props
+
+当使用 `generateImageMetadata` 时，默认导出的图像生成函数接收以下 props：
+
+#### `id`
+
+一个 promise，解析为 `generateImageMetadata` 返回的某个项目的 `id` 值。`id` 将是 `string` 或 `number`，取决于 `generateImageMetadata` 返回的内容。
+
+```tsx filename="icon.tsx" switcher
+export default async function Icon({ id }: { id: Promise<string | number> }) {
+  const iconId = await id
+  // 使用 iconId 生成图像
+}
+```
+
+```jsx filename="icon.js" switcher
+export default async function Icon({ id }) {
+  const iconId = await id
+  // 使用 iconId 生成图像
+}
+```
+
+#### `params`（可选）
+
+一个 promise，解析为一个对象，包含从根段到图像所在段的[动态路由参数](/docs/app/api-reference/file-conventions/dynamic-routes)。
+
+```tsx filename="icon.tsx" switcher
+export default async function Icon({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}) {
+  const { slug } = await params
+  // 使用 slug 生成图像
+}
+```
+
+```jsx filename="icon.js" switcher
+export default async function Icon({ params }) {
+  const { slug } = await params
+  // 使用 slug 生成图像
+}
+```
+
+### 示例
+
+#### 使用外部数据
+
+此示例使用 `params` 对象和外部数据为路由段生成多个 [Open Graph 图像](/docs/app/api-reference/file-conventions/metadata/opengraph-image)。
+
+```tsx filename="app/products/[id]/opengraph-image.tsx" switcher
+import { ImageResponse } from 'next/og'
+import { getCaptionForImage, getOGImages } from '@/app/utils/images'
+
+export async function generateImageMetadata({
+  params,
+}: {
+  params: { id: string }
+}) {
+  const images = await getOGImages(params.id)
+
+  return images.map((image, idx) => ({
+    id: idx,
+    size: { width: 1200, height: 600 },
+    alt: image.text,
+    contentType: 'image/png',
+  }))
+}
+
+export default async function Image({
+  params,
+  id,
+}: {
+  params: Promise<{ id: string }>
+  id: Promise<number>
+}) {
+  const productId = (await params).id
+  const imageId = await id
+  const text = await getCaptionForImage(productId, imageId)
+
+  return new ImageResponse(
+    (
+      <div
+        style={
+          {
+            // ...
+          }
+        }
+      >
+        {text}
+      </div>
+    )
+  )
+}
+```
+
+```jsx filename="app/products/[id]/opengraph-image.js" switcher
+import { ImageResponse } from 'next/og'
+import { getCaptionForImage, getOGImages } from '@/app/utils/images'
+
+export async function generateImageMetadata({ params }) {
+  const images = await getOGImages(params.id)
+
+  return images.map((image, idx) => ({
+    id: idx,
+    size: { width: 1200, height: 600 },
+    alt: image.text,
+    contentType: 'image/png',
+  }))
+}
+
+export default async function Image({ params, id }) {
+  const productId = (await params).id
+  const imageId = await id
+  const text = await getCaptionForImage(productId, imageId)
+
+  return new ImageResponse(
+    (
+      <div
+        style={
+          {
+            // ...
+          }
+        }
+      >
+        {text}
+      </div>
+    )
+  )
+}
+```
+
+## 版本历史
+
+| 版本   | 变更                                                                                             |
+| --------- | --------------------------------------------------------------------------------------------------- |
+| `v16.0.0` | 传递给图像生成函数的 `id` 现在是一个解析为 `string` 或 `number` 的 promise |
+| `v16.0.0` | 传递给图像生成函数的 `params` 现在是一个解析为对象的 promise        |
+| `v13.3.0` | 引入 `generateImageMetadata`。                                                                 |

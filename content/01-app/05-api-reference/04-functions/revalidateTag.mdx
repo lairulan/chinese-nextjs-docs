@@ -1,0 +1,135 @@
+---
+title: revalidateTag
+description: revalidateTag 函数的 API 参考。
+slug: /docs/app/api-reference/functions/revalidateTag
+---
+
+`revalidateTag` 允许你按需为特定的缓存标签使[缓存数据](/docs/app/guides/caching)失效。
+
+此函数非常适合那些更新延迟可以接受的内容，例如博客文章、产品目录或文档。用户会收到过时的内容，同时新数据在后台加载。
+
+## 用法
+
+`revalidateTag` 可以在 Server Functions 和 Route Handlers 中调用。
+
+`revalidateTag` 不能在 Client Components 或 Proxy 中调用，因为它只能在服务器环境中工作。
+
+### 重新验证行为
+
+重新验证行为取决于你是否提供第二个参数：
+
+- **使用 `profile="max"`（推荐）**：标签条目被标记为过时，下次访问带有该标签的资源时，将使用 stale-while-revalidate 语义。这意味着在后台获取新内容的同时提供过时的内容。
+- **使用自定义缓存生命周期配置文件**：对于高级用法，你可以指定应用程序已定义的任何缓存生命周期配置文件，允许针对特定缓存需求进行自定义重新验证行为。
+- **不使用第二个参数（已弃用）**：标签条目立即过期，对该资源的下一个请求将是阻塞式的重新验证/缓存未命中。此行为现已弃用，你应该使用 `profile="max"` 或迁移到 [`updateTag`](/docs/app/api-reference/functions/updateTag)。
+
+> **值得注意的是**：使用 `profile="max"` 时，`revalidateTag` 会将带标签的数据标记为过时，但新数据只有在下次访问使用该标签的页面时才会被获取。这意味着调用 `revalidateTag` 不会立即触发多个重新验证。失效只会在下次访问使用该标签的任何页面时发生。
+
+## 参数
+
+```ts
+revalidateTag(tag: string, profile?: string | { expire?: number }): void;
+```
+
+- `tag`：一个字符串，表示与你想要重新验证的数据关联的缓存标签。不能超过 256 个字符。此值区分大小写。
+- `profile`：一个字符串，指定重新验证行为。推荐值是 `"max"`，它提供 stale-while-revalidate 语义，或在 [`cacheLife`](/docs/app/api-reference/config/next-config-js/cacheLife) 中定义的任何其他默认或自定义配置文件。或者，你可以传递一个带有 `expire` 属性的对象来自定义过期行为。
+
+标签必须首先分配给缓存数据。你可以通过以下两种方式执行此操作：
+
+- 使用 [`next.tags`](/docs/app/guides/caching#fetch-optionsnexttags-and-revalidatetag) 选项与 `fetch` 一起缓存外部 API 请求：
+
+```tsx
+fetch(url, { next: { tags: ['posts'] } })
+```
+
+- 在带有 `'use cache'` 指令的缓存函数或组件内使用 [`cacheTag`](/docs/app/api-reference/functions/cacheTag)：
+
+```tsx
+import { cacheTag } from 'next/cache'
+
+async function getData() {
+  'use cache'
+  cacheTag('posts')
+  // ...
+}
+```
+
+## 返回值
+
+`revalidateTag` 不返回任何值。
+
+## 与 `revalidatePath` 的关系
+
+`revalidateTag` 使所有使用这些标签的页面中带有特定标签的数据失效，而 [`revalidatePath`](/docs/app/api-reference/functions/revalidatePath) 使特定的页面或布局路径失效。
+
+> **值得注意的是**：这些函数用于不同的目的，可能需要一起使用以实现全面的数据一致性。有关详细示例和注意事项，请参阅[与 revalidateTag 和 updateTag 的关系](/docs/app/api-reference/functions/revalidatePath#relationship-with-revalidatetag-and-updatetag)以获取更多信息。
+
+## 示例
+
+以下示例演示了如何在不同上下文中使用 `revalidateTag`。在这两种情况下，我们使用 `profile="max"` 将数据标记为过时并使用 stale-while-revalidate 语义，这是大多数用例的推荐方法。
+
+### Server Action
+
+```ts filename="app/actions.ts" switcher
+'use server'
+
+import { revalidateTag } from 'next/cache'
+
+export default async function submit() {
+  await addPost()
+  revalidateTag('posts', 'max')
+}
+```
+
+```js filename="app/actions.js" switcher
+'use server'
+
+import { revalidateTag } from 'next/cache'
+
+export default async function submit() {
+  await addPost()
+  revalidateTag('posts', 'max')
+}
+```
+
+### Route Handler
+
+```ts filename="app/api/revalidate/route.ts" switcher
+import type { NextRequest } from 'next/server'
+import { revalidateTag } from 'next/cache'
+
+export async function GET(request: NextRequest) {
+  const tag = request.nextUrl.searchParams.get('tag')
+
+  if (tag) {
+    revalidateTag(tag, 'max')
+    return Response.json({ revalidated: true, now: Date.now() })
+  }
+
+  return Response.json({
+    revalidated: false,
+    now: Date.now(),
+    message: 'Missing tag to revalidate',
+  })
+}
+```
+
+```js filename="app/api/revalidate/route.js" switcher
+import { revalidateTag } from 'next/cache'
+
+export async function GET(request) {
+  const tag = request.nextUrl.searchParams.get('tag')
+
+  if (tag) {
+    revalidateTag(tag, 'max')
+    return Response.json({ revalidated: true, now: Date.now() })
+  }
+
+  return Response.json({
+    revalidated: false,
+    now: Date.now(),
+    message: 'Missing tag to revalidate',
+  })
+}
+```
+
+> **值得注意的是**：对于需要立即过期的 webhooks 或第三方服务，你可以将 `{ expire: 0 }` 作为第二个参数传递：`revalidateTag(tag, { expire: 0 })`。当外部系统调用你的 Route Handlers 并需要数据立即过期时，此模式是必需的。对于所有其他情况，建议在 Server Actions 中使用 [`updateTag`](/docs/app/api-reference/functions/updateTag) 来进行立即更新。

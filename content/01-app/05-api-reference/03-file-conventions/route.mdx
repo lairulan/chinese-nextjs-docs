@@ -1,0 +1,663 @@
+---
+title: route.js
+description: route.js 特殊文件的 API 参考。
+slug: /docs/app/api-reference/file-conventions/route
+---
+
+Route Handler 允许你使用 Web [Request](https://developer.mozilla.org/docs/Web/API/Request) 和 [Response](https://developer.mozilla.org/docs/Web/API/Response) API 为给定路由创建自定义请求处理程序。
+
+```ts filename="route.ts" switcher
+export async function GET() {
+  return Response.json({ message: 'Hello World' })
+}
+```
+
+```js filename="route.js" switcher
+export async function GET() {
+  return Response.json({ message: 'Hello World' })
+}
+```
+
+## 参考
+
+### HTTP 方法
+
+**route** 文件允许你为给定路由创建自定义请求处理程序。支持以下 [HTTP 方法](https://developer.mozilla.org/docs/Web/HTTP/Methods)：`GET`、`POST`、`PUT`、`PATCH`、`DELETE`、`HEAD` 和 `OPTIONS`。
+
+```ts filename="route.ts" switcher
+export async function GET(request: Request) {}
+
+export async function HEAD(request: Request) {}
+
+export async function POST(request: Request) {}
+
+export async function PUT(request: Request) {}
+
+export async function DELETE(request: Request) {}
+
+export async function PATCH(request: Request) {}
+
+// 如果未定义 `OPTIONS`，Next.js 将自动实现 `OPTIONS` 并根据 Route Handler 中定义的其他方法设置相应的 Response `Allow` 标头。
+export async function OPTIONS(request: Request) {}
+```
+
+```js filename="route.js" switcher
+export async function GET(request) {}
+
+export async function HEAD(request) {}
+
+export async function POST(request) {}
+
+export async function PUT(request) {}
+
+export async function DELETE(request) {}
+
+export async function PATCH(request) {}
+
+// 如果未定义 `OPTIONS`，Next.js 将自动实现 `OPTIONS` 并根据 Route Handler 中定义的其他方法设置相应的 Response `Allow` 标头。
+export async function OPTIONS(request) {}
+```
+
+### 参数
+
+#### `request`（可选）
+
+`request` 对象是一个 [NextRequest](/docs/app/api-reference/functions/next-request) 对象，它是 Web [Request](https://developer.mozilla.org/docs/Web/API/Request) API 的扩展。`NextRequest` 为你提供对传入请求的进一步控制，包括轻松访问 `cookies` 和一个扩展的、已解析的 URL 对象 `nextUrl`。
+
+```ts filename="route.ts" switcher
+import type { NextRequest } from 'next/server'
+
+export async function GET(request: NextRequest) {
+  const url = request.nextUrl
+}
+```
+
+```js filename="route.js" switcher
+export async function GET(request) {
+  const url = request.nextUrl
+}
+```
+
+#### `context`（可选）
+
+- **`params`**：一个 promise，解析为包含当前路由的[动态路由参数](/docs/app/api-reference/file-conventions/dynamic-routes)的对象。
+
+```ts filename="app/dashboard/[team]/route.ts" switcher
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ team: string }> }
+) {
+  const { team } = await params
+}
+```
+
+```js filename="app/dashboard/[team]/route.js" switcher
+export async function GET(request, { params }) {
+  const { team } = await params
+}
+```
+
+| 示例                             | URL            | `params`                           |
+| -------------------------------- | -------------- | ---------------------------------- |
+| `app/dashboard/[team]/route.js`  | `/dashboard/1` | `Promise<{ team: '1' }>`           |
+| `app/shop/[tag]/[item]/route.js` | `/shop/1/2`    | `Promise<{ tag: '1', item: '2' }>` |
+| `app/blog/[...slug]/route.js`    | `/blog/1/2`    | `Promise<{ slug: ['1', '2'] }>`    |
+
+### Route Context Helper
+
+你可以使用 `RouteContext` 来类型化 Route Handler 上下文，以从路由字面量获取强类型的 `params`。`RouteContext` 是一个全局可用的辅助工具。
+
+```ts filename="app/users/[id]/route.ts"
+import type { NextRequest } from 'next/server'
+
+export async function GET(_req: NextRequest, ctx: RouteContext<'/users/[id]'>) {
+  const { id } = await ctx.params
+  return Response.json({ id })
+}
+```
+
+> **值得注意的是**
+>
+> - 类型在 `next dev`、`next build` 或 `next typegen` 期间生成。
+> - 类型生成后，`RouteContext` 辅助工具全局可用。它不需要被导入。
+
+## 示例
+
+### Cookies
+
+你可以使用 `next/headers` 中的 [`cookies`](/docs/app/api-reference/functions/cookies) 读取或设置 cookies。
+
+```ts filename="route.ts" switcher
+import { cookies } from 'next/headers'
+
+export async function GET(request: NextRequest) {
+  const cookieStore = await cookies()
+
+  const a = cookieStore.get('a')
+  const b = cookieStore.set('b', '1')
+  const c = cookieStore.delete('c')
+}
+```
+
+```js filename="route.js" switcher
+import { cookies } from 'next/headers'
+
+export async function GET(request) {
+  const cookieStore = await cookies()
+
+  const a = cookieStore.get('a')
+  const b = cookieStore.set('b', '1')
+  const c = cookieStore.delete('c')
+}
+```
+
+或者，你可以使用 [`Set-Cookie`](https://developer.mozilla.org/docs/Web/HTTP/Headers/Set-Cookie) 标头返回一个新的 `Response`。
+
+```ts filename="app/api/route.ts" switcher
+import { cookies } from 'next/headers'
+
+export async function GET(request: Request) {
+  const cookieStore = await cookies()
+  const token = cookieStore.get('token')
+
+  return new Response('Hello, Next.js!', {
+    status: 200,
+    headers: { 'Set-Cookie': `token=${token.value}` },
+  })
+}
+```
+
+```js filename="app/api/route.js" switcher
+import { cookies } from 'next/headers'
+
+export async function GET(request) {
+  const cookieStore = await cookies()
+  const token = cookieStore.get('token')
+
+  return new Response('Hello, Next.js!', {
+    status: 200,
+    headers: { 'Set-Cookie': `token=${token.value}` },
+  })
+}
+```
+
+你还可以使用底层的 Web API 从请求中读取 cookies（[`NextRequest`](/docs/app/api-reference/functions/next-request)）：
+
+```ts filename="app/api/route.ts" switcher
+import { type NextRequest } from 'next/server'
+
+export async function GET(request: NextRequest) {
+  const token = request.cookies.get('token')
+}
+```
+
+```js filename="app/api/route.js" switcher
+export async function GET(request) {
+  const token = request.cookies.get('token')
+}
+```
+
+### Headers
+
+你可以使用 `next/headers` 中的 [`headers`](/docs/app/api-reference/functions/headers) 读取标头。
+
+```ts filename="route.ts" switcher
+import { headers } from 'next/headers'
+import type { NextRequest } from 'next/server'
+
+export async function GET(request: NextRequest) {
+  const headersList = await headers()
+  const referer = headersList.get('referer')
+}
+```
+
+```js filename="route.js" switcher
+import { headers } from 'next/headers'
+
+export async function GET(request) {
+  const headersList = await headers()
+  const referer = headersList.get('referer')
+}
+```
+
+这个 `headers` 实例是只读的。要设置标头，你需要返回一个带有新 `headers` 的新 `Response`。
+
+```ts filename="app/api/route.ts" switcher
+import { headers } from 'next/headers'
+
+export async function GET(request: Request) {
+  const headersList = await headers()
+  const referer = headersList.get('referer')
+
+  return new Response('Hello, Next.js!', {
+    status: 200,
+    headers: { referer: referer },
+  })
+}
+```
+
+```js filename="app/api/route.js" switcher
+import { headers } from 'next/headers'
+
+export async function GET(request) {
+  const headersList = await headers()
+  const referer = headersList.get('referer')
+
+  return new Response('Hello, Next.js!', {
+    status: 200,
+    headers: { referer: referer },
+  })
+}
+```
+
+你还可以使用底层的 Web API 从请求中读取标头（[`NextRequest`](/docs/app/api-reference/functions/next-request)）：
+
+```ts filename="app/api/route.ts" switcher
+import { type NextRequest } from 'next/server'
+
+export async function GET(request: NextRequest) {
+  const requestHeaders = new Headers(request.headers)
+}
+```
+
+```js filename="app/api/route.js" switcher
+export async function GET(request) {
+  const requestHeaders = new Headers(request.headers)
+}
+```
+
+### 重新验证缓存数据
+
+你可以使用 `revalidate` 路由段配置选项来[重新验证缓存数据](/docs/app/guides/incremental-static-regeneration)。
+
+```ts filename="app/posts/route.ts" switcher
+export const revalidate = 60
+
+export async function GET() {
+  const data = await fetch('https://api.vercel.app/blog')
+  const posts = await data.json()
+
+  return Response.json(posts)
+}
+```
+
+```js filename="app/posts/route.js" switcher
+export const revalidate = 60
+
+export async function GET() {
+  const data = await fetch('https://api.vercel.app/blog')
+  const posts = await data.json()
+
+  return Response.json(posts)
+}
+```
+
+### 重定向
+
+```ts filename="app/api/route.ts" switcher
+import { redirect } from 'next/navigation'
+
+export async function GET(request: Request) {
+  redirect('https://nextjs.org/')
+}
+```
+
+```js filename="app/api/route.js" switcher
+import { redirect } from 'next/navigation'
+
+export async function GET(request) {
+  redirect('https://nextjs.org/')
+}
+```
+
+### 动态路由段
+
+Route Handler 可以使用[动态段](/docs/app/api-reference/file-conventions/dynamic-routes)从动态数据创建请求处理程序。
+
+```ts filename="app/items/[slug]/route.ts" switcher
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  const { slug } = await params // 'a'、'b' 或 'c'
+}
+```
+
+```js filename="app/items/[slug]/route.js" switcher
+export async function GET(request, { params }) {
+  const { slug } = await params // 'a'、'b' 或 'c'
+}
+```
+
+| 路由                        | 示例 URL    | `params`                 |
+| --------------------------- | ----------- | ------------------------ |
+| `app/items/[slug]/route.js` | `/items/a`  | `Promise<{ slug: 'a' }>` |
+| `app/items/[slug]/route.js` | `/items/b`  | `Promise<{ slug: 'b' }>` |
+| `app/items/[slug]/route.js` | `/items/c`  | `Promise<{ slug: 'c' }>` |
+
+### URL 查询参数
+
+传递给 Route Handler 的请求对象是一个 `NextRequest` 实例，它包含[一些额外的便捷方法](/docs/app/api-reference/functions/next-request#nexturl)，例如更轻松地处理查询参数的方法。
+
+```ts filename="app/api/search/route.ts" switcher
+import { type NextRequest } from 'next/server'
+
+export function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams
+  const query = searchParams.get('query')
+  // 对于 /api/search?query=hello，query 的值为 "hello"
+}
+```
+
+```js filename="app/api/search/route.js" switcher
+export function GET(request) {
+  const searchParams = request.nextUrl.searchParams
+  const query = searchParams.get('query')
+  // 对于 /api/search?query=hello，query 的值为 "hello"
+}
+```
+
+### 流式传输
+
+流式传输通常与大型语言模型（LLM）结合使用，例如 OpenAI，用于 AI 生成的内容。了解更多关于 [AI SDK](https://sdk.vercel.ai/docs/introduction) 的信息。
+
+```ts filename="app/api/chat/route.ts" switcher
+import { openai } from '@ai-sdk/openai'
+import { StreamingTextResponse, streamText } from 'ai'
+
+export async function POST(req: Request) {
+  const { messages } = await req.json()
+  const result = await streamText({
+    model: openai('gpt-4-turbo'),
+    messages,
+  })
+
+  return new StreamingTextResponse(result.toAIStream())
+}
+```
+
+```js filename="app/api/chat/route.js" switcher
+import { openai } from '@ai-sdk/openai'
+import { StreamingTextResponse, streamText } from 'ai'
+
+export async function POST(req) {
+  const { messages } = await req.json()
+  const result = await streamText({
+    model: openai('gpt-4-turbo'),
+    messages,
+  })
+
+  return new StreamingTextResponse(result.toAIStream())
+}
+```
+
+这些抽象使用 Web API 来创建流。你也可以直接使用底层的 Web API。
+
+```ts filename="app/api/route.ts" switcher
+// https://developer.mozilla.org/docs/Web/API/ReadableStream#convert_async_iterator_to_stream
+function iteratorToStream(iterator: any) {
+  return new ReadableStream({
+    async pull(controller) {
+      const { value, done } = await iterator.next()
+
+      if (done) {
+        controller.close()
+      } else {
+        controller.enqueue(value)
+      }
+    },
+  })
+}
+
+function sleep(time: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, time)
+  })
+}
+
+const encoder = new TextEncoder()
+
+async function* makeIterator() {
+  yield encoder.encode('<p>One</p>')
+  await sleep(200)
+  yield encoder.encode('<p>Two</p>')
+  await sleep(200)
+  yield encoder.encode('<p>Three</p>')
+}
+
+export async function GET() {
+  const iterator = makeIterator()
+  const stream = iteratorToStream(iterator)
+
+  return new Response(stream)
+}
+```
+
+```js filename="app/api/route.js" switcher
+// https://developer.mozilla.org/docs/Web/API/ReadableStream#convert_async_iterator_to_stream
+function iteratorToStream(iterator) {
+  return new ReadableStream({
+    async pull(controller) {
+      const { value, done } = await iterator.next()
+
+      if (done) {
+        controller.close()
+      } else {
+        controller.enqueue(value)
+      }
+    },
+  })
+}
+
+function sleep(time) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, time)
+  })
+}
+
+const encoder = new TextEncoder()
+
+async function* makeIterator() {
+  yield encoder.encode('<p>One</p>')
+  await sleep(200)
+  yield encoder.encode('<p>Two</p>')
+  await sleep(200)
+  yield encoder.encode('<p>Three</p>')
+}
+
+export async function GET() {
+  const iterator = makeIterator()
+  const stream = iteratorToStream(iterator)
+
+  return new Response(stream)
+}
+```
+
+### 请求体
+
+你可以使用标准 Web API 方法读取 `Request` 主体：
+
+```ts filename="app/items/route.ts" switcher
+export async function POST(request: Request) {
+  const res = await request.json()
+  return Response.json({ res })
+}
+```
+
+```js filename="app/items/route.js" switcher
+export async function POST(request) {
+  const res = await request.json()
+  return Response.json({ res })
+}
+```
+
+### 请求体 FormData
+
+你可以使用 `request.formData()` 函数读取 `FormData`：
+
+```ts filename="app/items/route.ts" switcher
+export async function POST(request: Request) {
+  const formData = await request.formData()
+  const name = formData.get('name')
+  const email = formData.get('email')
+  return Response.json({ name, email })
+}
+```
+
+```js filename="app/items/route.js" switcher
+export async function POST(request) {
+  const formData = await request.formData()
+  const name = formData.get('name')
+  const email = formData.get('email')
+  return Response.json({ name, email })
+}
+```
+
+由于 `formData` 数据都是字符串，你可能想使用 [`zod-form-data`](https://www.npmjs.com/zod-form-data) 来验证请求并以你喜欢的格式检索数据（例如 `number`）。
+
+### CORS
+
+你可以使用标准 Web API 方法为特定的 Route Handler 设置 CORS 标头：
+
+```ts filename="app/api/route.ts" switcher
+export async function GET(request: Request) {
+  return new Response('Hello, Next.js!', {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  })
+}
+```
+
+```js filename="app/api/route.js" switcher
+export async function GET(request) {
+  return new Response('Hello, Next.js!', {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  })
+}
+```
+
+> **值得注意的是**：
+>
+> - 要为多个 Route Handler 添加 CORS 标头，你可以使用 [Proxy](/docs/app/api-reference/file-conventions/proxy#cors) 或 [`next.config.js` 文件](/docs/app/api-reference/config/next-config-js/headers#cors)。
+
+### Webhooks
+
+你可以使用 Route Handler 接收来自第三方服务的 webhooks：
+
+```ts filename="app/api/route.ts" switcher
+export async function POST(request: Request) {
+  try {
+    const text = await request.text()
+    // 处理 webhook 负载
+  } catch (error) {
+    return new Response(`Webhook error: ${error.message}`, {
+      status: 400,
+    })
+  }
+
+  return new Response('Success!', {
+    status: 200,
+  })
+}
+```
+
+```js filename="app/api/route.js" switcher
+export async function POST(request) {
+  try {
+    const text = await request.text()
+    // 处理 webhook 负载
+  } catch (error) {
+    return new Response(`Webhook error: ${error.message}`, {
+      status: 400,
+    })
+  }
+
+  return new Response('Success!', {
+    status: 200,
+  })
+}
+```
+
+值得注意的是，与 Pages Router 的 API Routes 不同，你不需要使用 `bodyParser` 来使用任何额外的配置。
+
+### 非 UI 响应
+
+你可以使用 Route Handler 返回非 UI 内容。请注意，[`sitemap.xml`](/docs/app/api-reference/file-conventions/metadata/sitemap#generating-a-sitemap-using-code-js-ts)、[`robots.txt`](/docs/app/api-reference/file-conventions/metadata/robots#generate-a-robots-file)、[`app icons`](/docs/app/api-reference/file-conventions/metadata/app-icons#generate-icons-using-code-js-ts-tsx) 和 [open graph images](/docs/app/api-reference/file-conventions/metadata/opengraph-image) 都有内置支持。
+
+```ts filename="app/rss.xml/route.ts" switcher
+export async function GET() {
+  return new Response(
+    `<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0">
+
+<channel>
+  <title>Next.js Documentation</title>
+  <link>https://nextjs.org/docs</link>
+  <description>The React Framework for the Web</description>
+</channel>
+
+</rss>`,
+    {
+      headers: {
+        'Content-Type': 'text/xml',
+      },
+    }
+  )
+}
+```
+
+```js filename="app/rss.xml/route.js" switcher
+export async function GET() {
+  return new Response(`<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0">
+
+<channel>
+  <title>Next.js Documentation</title>
+  <link>https://nextjs.org/docs</link>
+  <description>The React Framework for the Web</description>
+</channel>
+
+</rss>`)
+}
+```
+
+### 段配置选项
+
+Route Handler 使用与页面和布局相同的[路由段配置](/docs/app/api-reference/file-conventions/route-segment-config)。
+
+```ts filename="app/items/route.ts" switcher
+export const dynamic = 'auto'
+export const dynamicParams = true
+export const revalidate = false
+export const fetchCache = 'auto'
+export const runtime = 'nodejs'
+export const preferredRegion = 'auto'
+```
+
+```js filename="app/items/route.js" switcher
+export const dynamic = 'auto'
+export const dynamicParams = true
+export const revalidate = false
+export const fetchCache = 'auto'
+export const runtime = 'nodejs'
+export const preferredRegion = 'auto'
+```
+
+有关更多详细信息，请参阅 [API 参考](/docs/app/api-reference/file-conventions/route-segment-config)。
+
+## 版本历史
+
+| 版本         | 变更                                                                            |
+| ------------ | ------------------------------------------------------------------------------- |
+| `v15.0.0-RC` | `context.params` 现在是一个 promise。提供了一个 [codemod](/docs/app/guides/upgrading/codemods#150) |
+| `v15.0.0-RC` | `GET` 处理程序的默认缓存从静态更改为动态                                        |
+| `v13.2.0`    | 引入 Route Handler。                                                            |

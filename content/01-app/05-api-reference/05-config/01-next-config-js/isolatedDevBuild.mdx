@@ -1,0 +1,45 @@
+---
+title: isolatedDevBuild
+description: 为开发服务器使用隔离的构建输出，以防止与生产构建发生冲突。
+version: experimental
+slug: /docs/app/api-reference/config/next-config-js/isolatedDevBuild
+---
+
+实验性的 `isolatedDevBuild` 选项将开发和生产构建输出分离到不同的目录中。启用后，开发服务器（`next dev`）会将其输出写入 `.next/dev` 而不是 `.next`，从而防止同时运行 `next dev` 和 `next build` 时发生冲突。
+
+这在自动化工具（例如，AI 代理）运行 `next build` 来验证更改而你的开发服务器正在运行时特别有用，可以确保开发服务器不受构建过程所做更改的影响。
+
+此功能**默认启用**，以保持开发和生产输出分离并防止冲突。
+
+## 配置
+
+要选择退出此功能，请在你的配置中将 `isolatedDevBuild` 设置为 `false`：
+
+```ts filename="next.config.ts" switcher
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  experimental: {
+    isolatedDevBuild: false, // 默认为 true
+  },
+}
+
+export default nextConfig
+```
+
+```js filename="next.config.mjs" switcher
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  experimental: {
+    isolatedDevBuild: false, // 默认为 true
+  },
+}
+
+export default nextConfig
+```
+
+## 版本历史
+
+| Version   | Changes                              |
+| --------- | ------------------------------------ |
+| `v16.0.0` | 引入 `experimental.isolatedDevBuild` |

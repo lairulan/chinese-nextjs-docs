@@ -1,0 +1,461 @@
+---
+title: API Routes
+description: Next.js 支持 API Routes，允许你在不离开 Next.js 应用的情况下构建 API。在此了解它的工作原理。
+slug: /docs/pages/building-your-application/routing/api-routes
+---
+
+<details>
+  <summary>示例</summary>
+
+- [API Routes Request Helpers](https://github.com/vercel/next.js/tree/canary/examples/api-routes-proxy)
+- [API Routes with GraphQL](https://github.com/vercel/next.js/tree/canary/examples/api-routes-graphql)
+- [API Routes with REST](https://github.com/vercel/next.js/tree/canary/examples/api-routes-rest)
+- [API Routes with CORS](https://github.com/vercel/next.js/tree/canary/examples/api-routes-cors)
+
+</details>
+
+> **值得注意的是**：如果你正在使用 App Router，可以使用 [Server Components](/docs/app/getting-started/server-and-client-components) 或 [Route Handlers](/docs/app/api-reference/file-conventions/route) 来代替 API Routes。
+
+API routes 提供了一个使用 Next.js 构建**公共 API** 的解决方案。
+
+`pages/api` 文件夹内的任何文件都会被映射到 `/api/*`，并将被视为 API 端点而不是 `page`。它们是仅限服务器端的 bundle，不会增加你的客户端 bundle 大小。
+
+例如，以下 API route 返回一个状态码为 `200` 的 JSON 响应：
+
+```ts filename="pages/api/hello.ts" switcher
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+type ResponseData = {
+  message: string
+}
+
+export default function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<ResponseData>
+) {
+  res.status(200).json({ message: 'Hello from Next.js!' })
+}
+```
+
+```js filename="pages/api/hello.js" switcher
+export default function handler(req, res) {
+  res.status(200).json({ message: 'Hello from Next.js!' })
+}
+```
+
+> **值得注意的是**：
+>
+> - API Routes [不指定 CORS 头](https://developer.mozilla.org/docs/Web/HTTP/CORS)，这意味着它们默认是**仅限同源**的。你可以通过使用 [CORS request helpers](https://github.com/vercel/next.js/tree/canary/examples/api-routes-cors) 包装请求处理程序来自定义此行为。
+
+- API Routes 不能与[静态导出](/docs/pages/guides/static-exports)一起使用。但是，App Router 中的 [Route Handlers](/docs/app/api-reference/file-conventions/route) 可以。
+  > - API Routes 将受到 `next.config.js` 中 [`pageExtensions` 配置](/docs/pages/api-reference/config/next-config-js/pageExtensions)的影响。
+
+## 参数
+
+```tsx
+export default function handler(req: NextApiRequest, res: NextApiResponse) {
+  // ...
+}
+```
+
+- `req`：[http.IncomingMessage](https://nodejs.org/api/http.html#class-httpincomingmessage) 的实例
+- `res`：[http.ServerResponse](https://nodejs.org/api/http.html#class-httpserverresponse) 的实例
+
+## HTTP 方法
+
+要在 API route 中处理不同的 HTTP 方法，你可以在请求处理程序中使用 `req.method`，如下所示：
+
+```ts filename="pages/api/hello.ts" switcher
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+export default function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method === 'POST') {
+    // 处理 POST 请求
+  } else {
+    // 处理其他任何 HTTP 方法
+  }
+}
+```
+
+```js filename="pages/api/hello.js" switcher
+export default function handler(req, res) {
+  if (req.method === 'POST') {
+    // 处理 POST 请求
+  } else {
+    // 处理其他任何 HTTP 方法
+  }
+}
+```
+
+## 请求辅助工具
+
+API Routes 提供了内置的请求辅助工具，用于解析传入的请求（`req`）：
+
+- `req.cookies` - 包含请求发送的 cookies 的对象。默认为 `{}`
+- `req.query` - 包含[查询字符串](https://en.wikipedia.org/wiki/Query_string)的对象。默认为 `{}`
+- `req.body` - 包含由 `content-type` 解析的 body 的对象，如果没有发送 body 则为 `null`
+
+### 自定义配置
+
+每个 API Route 都可以导出一个 `config` 对象来更改默认配置，如下所示：
+
+```js
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '1mb',
+    },
+  },
+  // 指定此函数允许执行的最大持续时间（以秒为单位）
+  maxDuration: 5,
+}
+```
+
+`bodyParser` 默认自动启用。如果你想将 body 作为 `Stream` 使用或与 [`raw-body`](https://www.npmjs.com/package/raw-body) 一起使用，可以将其设置为 `false`。
+
+禁用自动 `bodyParsing` 的一个用例是允许你验证 **webhook** 请求的原始 body，例如[来自 GitHub](https://docs.github.com/en/developers/webhooks-and-events/webhooks/securing-your-webhooks#validating-payloads-from-github)。
+
+```js
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+}
+```
+
+`bodyParser.sizeLimit` 是解析后的 body 允许的最大大小，支持 [bytes](https://github.com/visionmedia/bytes.js) 支持的任何格式，如下所示：
+
+```js
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '500kb',
+    },
+  },
+}
+```
+
+`externalResolver` 是一个明确的标志，告诉服务器此路由正在由外部解析器（如 _express_ 或 _connect_）处理。启用此选项会禁用对未解析请求的警告。
+
+```js
+export const config = {
+  api: {
+    externalResolver: true,
+  },
+}
+```
+
+`responseLimit` 默认自动启用，当 API Routes 的响应 body 超过 4MB 时会发出警告。
+
+如果你没有在 serverless 环境中使用 Next.js，并且理解不使用 CDN 或专用媒体主机的性能影响，可以将此限制设置为 `false`。
+
+```js
+export const config = {
+  api: {
+    responseLimit: false,
+  },
+}
+```
+
+`responseLimit` 也可以接受字节数或 `bytes` 支持的任何字符串格式，例如 `1000`、`'500kb'` 或 `'3mb'`。
+此值将是显示警告之前的最大响应大小。默认为 4MB。（见上文）
+
+```js
+export const config = {
+  api: {
+    responseLimit: '8mb',
+  },
+}
+```
+
+## 响应辅助工具
+
+[Server Response 对象](https://nodejs.org/api/http.html#http_class_http_serverresponse)（通常缩写为 `res`）包含一组类似 Express.js 的辅助方法，以改善开发者体验并提高创建新 API 端点的速度。
+
+包含的辅助工具有：
+
+- `res.status(code)` - 设置状态码的函数。`code` 必须是有效的 [HTTP 状态码](https://en.wikipedia.org/wiki/List_of_HTTP_status_codes)
+- `res.json(body)` - 发送 JSON 响应。`body` 必须是[可序列化对象](https://developer.mozilla.org/docs/Glossary/Serialization)
+- `res.send(body)` - 发送 HTTP 响应。`body` 可以是 `string`、`object` 或 `Buffer`
+- `res.redirect([status,] path)` - 重定向到指定的路径或 URL。`status` 必须是有效的 [HTTP 状态码](https://en.wikipedia.org/wiki/List_of_HTTP_status_codes)。如果未指定，`status` 默认为"307""临时重定向"。
+- `res.revalidate(urlPath)` - 使用 `getStaticProps` [按需重新验证页面](/docs/pages/guides/incremental-static-regeneration#on-demand-revalidation-with-revalidatepath)。`urlPath` 必须是 `string`。
+
+### 设置响应的状态码
+
+在向客户端发送响应时，你可以设置响应的状态码。
+
+以下示例将响应的状态码设置为 `200`（`OK`），并返回一个值为 `Hello from Next.js!` 的 `message` 属性作为 JSON 响应：
+
+```ts filename="pages/api/hello.ts" switcher
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+type ResponseData = {
+  message: string
+}
+
+export default function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<ResponseData>
+) {
+  res.status(200).json({ message: 'Hello from Next.js!' })
+}
+```
+
+```js filename="pages/api/hello.js" switcher
+export default function handler(req, res) {
+  res.status(200).json({ message: 'Hello from Next.js!' })
+}
+```
+
+### 发送 JSON 响应
+
+在向客户端发送响应时，你可以发送 JSON 响应，这必须是一个[可序列化对象](https://developer.mozilla.org/docs/Glossary/Serialization)。
+在实际应用中，你可能希望根据请求端点的结果让客户端知道请求的状态。
+
+以下示例发送一个状态码为 `200`（`OK`）和异步操作结果的 JSON 响应。它包含在 try catch 块中以处理可能发生的任何错误，并将捕获的适当状态码和错误消息发送回客户端：
+
+```ts filename="pages/api/hello.ts" switcher
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  try {
+    const result = await someAsyncOperation()
+    res.status(200).json({ result })
+  } catch (err) {
+    res.status(500).json({ error: 'failed to load data' })
+  }
+}
+```
+
+```js filename="pages/api/hello.js" switcher
+export default async function handler(req, res) {
+  try {
+    const result = await someAsyncOperation()
+    res.status(200).json({ result })
+  } catch (err) {
+    res.status(500).json({ error: 'failed to load data' })
+  }
+}
+```
+
+### 发送 HTTP 响应
+
+发送 HTTP 响应的工作方式与发送 JSON 响应相同。唯一的区别是响应 body 可以是 `string`、`object` 或 `Buffer`。
+
+以下示例发送一个状态码为 `200`（`OK`）和异步操作结果的 HTTP 响应。
+
+```ts filename="pages/api/hello.ts" switcher
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  try {
+    const result = await someAsyncOperation()
+    res.status(200).send({ result })
+  } catch (err) {
+    res.status(500).send({ error: 'failed to fetch data' })
+  }
+}
+```
+
+```js filename="pages/api/hello.js" switcher
+export default async function handler(req, res) {
+  try {
+    const result = await someAsyncOperation()
+    res.status(200).send({ result })
+  } catch (err) {
+    res.status(500).send({ error: 'failed to fetch data' })
+  }
+}
+```
+
+### 重定向到指定的路径或 URL
+
+以表单为例，你可能希望在客户端成功提交表单后将其重定向到指定的路径或 URL。
+
+以下示例在表单成功提交后将客户端重定向到 `/` 路径：
+
+```ts filename="pages/api/hello.ts" switcher
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  const { name, message } = req.body
+
+  try {
+    await handleFormInputAsync({ name, message })
+    res.redirect(307, '/')
+  } catch (err) {
+    res.status(500).send({ error: 'Failed to fetch data' })
+  }
+}
+```
+
+```js filename="pages/api/hello.js" switcher
+export default async function handler(req, res) {
+  const { name, message } = req.body
+
+  try {
+    await handleFormInputAsync({ name, message })
+    res.redirect(307, '/')
+  } catch (err) {
+    res.status(500).send({ error: 'failed to fetch data' })
+  }
+}
+```
+
+### 添加 TypeScript 类型
+
+你可以通过从 `next` 导入 `NextApiRequest` 和 `NextApiResponse` 类型来使你的 API Routes 更加类型安全，此外，你还可以为响应数据添加类型：
+
+```ts
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+type ResponseData = {
+  message: string
+}
+
+export default function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<ResponseData>
+) {
+  res.status(200).json({ message: 'Hello from Next.js!' })
+}
+```
+
+> **值得注意的是**：`NextApiRequest` 的 body 是 `any`，因为客户端可能包含任何 payload。你应该在使用之前在运行时验证 body 的类型/形状。
+
+## 动态 API Routes
+
+API Routes 支持[动态路由](/docs/pages/building-your-application/routing/dynamic-routes)，并遵循与 `pages/` 相同的文件命名规则。
+
+```ts filename="pages/api/post/[pid].ts" switcher
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+export default function handler(req: NextApiRequest, res: NextApiResponse) {
+  const { pid } = req.query
+  res.end(`Post: ${pid}`)
+}
+```
+
+```js filename="pages/api/post/[pid].js" switcher
+export default function handler(req, res) {
+  const { pid } = req.query
+  res.end(`Post: ${pid}`)
+}
+```
+
+现在，对 `/api/post/abc` 的请求将响应文本：`Post: abc`。
+
+### 捕获所有 API routes
+
+API Routes 可以通过在括号内添加三个点（`...`）来扩展以捕获所有路径。例如：
+
+- `pages/api/post/[...slug].js` 匹配 `/api/post/a`，也匹配 `/api/post/a/b`、`/api/post/a/b/c` 等。
+
+> **值得注意的是**：你可以使用 `slug` 以外的名称，例如：`[...param]`
+
+匹配的参数将作为查询参数（示例中的 `slug`）发送到页面，并且它始终是一个数组，因此路径 `/api/post/a` 将具有以下 `query` 对象：
+
+```json
+{ "slug": ["a"] }
+```
+
+而在 `/api/post/a/b` 的情况下，以及任何其他匹配路径，新参数将被添加到数组中，如下所示：
+
+```json
+{ "slug": ["a", "b"] }
+```
+
+例如：
+
+```ts filename="pages/api/post/[...slug].ts" switcher
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+export default function handler(req: NextApiRequest, res: NextApiResponse) {
+  const { slug } = req.query
+  res.end(`Post: ${slug.join(', ')}`)
+}
+```
+
+```js filename="pages/api/post/[...slug].js" switcher
+export default function handler(req, res) {
+  const { slug } = req.query
+  res.end(`Post: ${slug.join(', ')}`)
+}
+```
+
+现在，对 `/api/post/a/b/c` 的请求将响应文本：`Post: a, b, c`。
+
+### 可选的捕获所有 API routes
+
+通过将参数包含在双括号（`[[...slug]]`）中，可以使捕获所有路由成为可选的。
+
+例如，`pages/api/post/[[...slug]].js` 将匹配 `/api/post`、`/api/post/a`、`/api/post/a/b` 等。
+
+捕获所有路由和可选捕获所有路由之间的主要区别在于，使用可选路由时，不带参数的路由也会被匹配（上面示例中的 `/api/post`）。
+
+`query` 对象如下：
+
+```json
+{ } // GET `/api/post`（空对象）
+{ "slug": ["a"] } // `GET /api/post/a`（单元素数组）
+{ "slug": ["a", "b"] } // `GET /api/post/a/b`（多元素数组）
+```
+
+### 注意事项
+
+- 预定义的 API routes 优先于动态 API routes，而动态 API routes 优先于捕获所有 API routes。看看以下示例：
+  - `pages/api/post/create.js` - 将匹配 `/api/post/create`
+  - `pages/api/post/[pid].js` - 将匹配 `/api/post/1`、`/api/post/abc` 等。但不匹配 `/api/post/create`
+  - `pages/api/post/[...slug].js` - 将匹配 `/api/post/1/2`、`/api/post/a/b/c` 等。但不匹配 `/api/post/create`、`/api/post/abc`
+
+## 流式响应
+
+虽然 Pages Router 确实支持使用 API Routes 的流式响应，但如果你使用的是 Next.js 14+，我们建议逐步采用 App Router 并使用 [Route Handlers](/docs/app/api-reference/file-conventions/route)。
+
+以下是如何使用 `writeHead` 从 API Route 流式传输响应：
+
+```ts filename="pages/api/hello.ts" switcher
+import { NextApiRequest, NextApiResponse } from 'next'
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-store',
+  })
+  let i = 0
+  while (i < 10) {
+    res.write(`data: ${i}\n\n`)
+    i++
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+  }
+  res.end()
+}
+```
+
+```js filename="pages/api/hello.js" switcher
+export default async function handler(req, res) {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-store',
+  })
+  let i = 0
+  while (i < 10) {
+    res.write(`data: ${i}\n\n`)
+    i++
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+  }
+  res.end()
+}
+```

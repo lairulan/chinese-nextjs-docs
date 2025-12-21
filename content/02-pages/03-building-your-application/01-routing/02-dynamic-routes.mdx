@@ -1,0 +1,65 @@
+---
+title: 动态路由
+description: 动态路由是允许你在 URL 中添加自定义参数的页面。从这里开始创建动态路由并了解更多。
+related:
+  title: 下一步
+  description: 关于接下来要做什么，我们推荐以下章节
+  links:
+    - pages/building-your-application/routing/linking-and-navigating
+    - pages/api-reference/functions/use-router
+slug: /docs/pages/building-your-application/routing/dynamic-routes
+---
+
+当你事先不知道确切的路由片段名称，并且想要从动态数据创建路由时，你可以使用在请求时填充或在构建时预渲染的动态片段。
+
+## 约定
+
+通过用方括号包裹文件或文件夹名称可以创建动态片段：`[segmentName]`。例如，`[id]` 或 `[slug]`。
+
+动态片段可以通过 [`useRouter`](/docs/pages/api-reference/functions/use-router) 访问。
+
+## 示例
+
+例如，一个博客可以包含如下路由 `pages/blog/[slug].js`，其中 `[slug]` 是博客文章的动态片段。
+
+```jsx
+import { useRouter } from 'next/router'
+
+export default function Page() {
+  const router = useRouter()
+  return <p>文章：{router.query.slug}</p>
+}
+```
+
+| 路由                   | 示例 URL | `params`        |
+| ---------------------- | --------- | --------------- |
+| `pages/blog/[slug].js` | `/blog/a` | `{ slug: 'a' }` |
+| `pages/blog/[slug].js` | `/blog/b` | `{ slug: 'b' }` |
+| `pages/blog/[slug].js` | `/blog/c` | `{ slug: 'c' }` |
+
+## 通配符片段
+
+通过在方括号内添加省略号 `[...segmentName]`，动态片段可以扩展为**通配符**捕获后续片段。
+
+例如，`pages/shop/[...slug].js` 将匹配 `/shop/clothes`，同时也匹配 `/shop/clothes/tops`、`/shop/clothes/tops/t-shirts` 等。
+
+| 路由                      | 示例 URL     | `params`                    |
+| ------------------------- | ------------ | --------------------------- |
+| `pages/shop/[...slug].js` | `/shop/a`    | `{ slug: ['a'] }`           |
+| `pages/shop/[...slug].js` | `/shop/a/b`  | `{ slug: ['a', 'b'] }`      |
+| `pages/shop/[...slug].js` | `/shop/a/b/c`| `{ slug: ['a', 'b', 'c'] }` |
+
+## 可选的通配符片段
+
+通配符片段可以通过在双方括号中包含参数 `[[...segmentName]]` 变为**可选**。
+
+例如，`pages/shop/[[...slug]].js` 不仅会匹配 `/shop/clothes`、`/shop/clothes/tops`、`/shop/clothes/tops/t-shirts`，还会匹配 `/shop`。
+
+**通配符**和**可选通配符**片段的区别在于，可选通配符还会匹配没有参数的路由（上面示例中的 `/shop`）。
+
+| 路由                        | 示例 URL     | `params`                    |
+| --------------------------- | ------------ | --------------------------- |
+| `pages/shop/[[...slug]].js` | `/shop`      | `{ slug: undefined }`       |
+| `pages/shop/[[...slug]].js` | `/shop/a`    | `{ slug: ['a'] }`           |
+| `pages/shop/[[...slug]].js` | `/shop/a/b`  | `{ slug: ['a', 'b'] }`      |
+| `pages/shop/[[...slug]].js` | `/shop/a/b/c`| `{ slug: ['a', 'b', 'c'] }` |

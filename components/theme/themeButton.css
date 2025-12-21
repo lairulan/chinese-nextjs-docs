@@ -1,0 +1,27 @@
+.theme-switcher {
+  width: fit-content;
+  border-radius: 9999px;
+  border: 1px solid var(--ds-gray-400);
+}
+
+.theme-switcher button {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  border: 0;
+  background-color: transparent;
+  color: var(--ds-gray-900);
+  font-size: 14px;
+}
+
+.theme-switcher button[data-active="true"] {
+  background: var(--ds-gray-300);
+  color: var(--ds-gray-1000);
+}
+
+.theme-switcher button:hover {
+  color: var(--accents-8);
+}
