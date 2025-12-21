@@ -1,7 +1,13 @@
 {
   "name": "nextjscn.org",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ErvingZheng/open-nextjs-docs"
+  },
+  "homepage": "https://nextjscn.org",
   "scripts": {
     "dev": "next dev",
     "prebuild": "npx ts-node scripts/generateMenu.ts && pnpm generate-order-index",

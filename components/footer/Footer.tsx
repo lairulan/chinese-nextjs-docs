@@ -1,10 +1,10 @@
+import { Newsletter } from "@/components/footer/Newsletter";
+import NextjsLogo from "@/components/icons/logo";
 import { ThemedButton } from "@/components/theme/ThemedButton";
 import { siteConfig } from "@/config/site";
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import "./Footer.css";
-import NextjsLogo from "@/components/icons/logo";
-import { ArrowUpRight } from "lucide-react";
-import { Newsletter } from "@/components/footer/Newsletter";
 
 const Footer = () => {
   const categories = siteConfig.footerLinks;
@@ -47,6 +47,18 @@ const Footer = () => {
           <div className="flex justify-between mt-12">
             <div className="flex items-center text-sm footer_copyright">
               <div>© 2024 weijunext & 阿伟dev.</div>
+              <div className="ml-4">
+                <Link
+                  href="https://github.com/ErvingZheng/open-nextjs-docs"
+                  title="GitHub 仓库"
+                  rel="noopener noreferrer"
+                  target="_blank"
+                  className="flex items-center gap-1 hover:text-primary"
+                >
+                  <span>GitHub 仓库</span>
+                  <ArrowUpRight className="w-3 h-3" />
+                </Link>
+              </div>
               {/* <div className="flex items-center gap-2">
                 {siteConfig.authors.map((author) => (
                   <Link
