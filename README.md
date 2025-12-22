@@ -7,7 +7,8 @@
   [![License](https://img.shields.io/badge/license-MIT%20with%20Attribution-blue.svg)](LICENSE)
   [![Next.js](https://img.shields.io/badge/Next.js-14.1.1-black)](https://nextjs.org)
 
-  [在线访问](https://nextjscn.org) · [报告问题](https://github.com/ErvingZheng/open-nextjs-docs/issues) · [参与贡献](https://github.com/ErvingZheng/open-nextjs-docs/pulls)
+[在线访问](https://nextjscn.org) · [报告问题](https://github.com/ErvingZheng/chinese-nextjs-docs/issues) · [参与贡献](https://github.com/ErvingZheng/chinese-nextjs-docs/pulls)
+
 </div>
 
 ---
@@ -33,7 +34,11 @@
 #### Footer 链接示例
 
 ```html
-<a href="https://github.com/ErvingZheng/open-nextjs-docs" target="_blank" rel="noopener noreferrer">
+<a
+  href="https://github.com/ErvingZheng/chinese-nextjs-docs"
+  target="_blank"
+  rel="noopener noreferrer"
+>
   Powered by Open Next.js Docs
 </a>
 ```
@@ -49,6 +54,7 @@
 Next.js 中文文档是 Next.js 官方英文文档的中文翻译版本，旨在为中文开发者提供一个高质量、易于理解的 Next.js 学习资源。
 
 本项目涵盖：
+
 - **App Router** - Next.js 最新的路由系统
 - **Pages Router** - 经典的页面路由系统
 - **API Reference** - 完整的 API 参考文档
@@ -64,13 +70,13 @@ Next.js 中文文档是 Next.js 官方英文文档的中文翻译版本，旨在
 
 ## 🛠️ 技术栈
 
-| 技术 | 说明 |
-|------|------|
-| [Next.js 14](https://nextjs.org) | React 全栈框架 |
-| [React 18](https://react.dev) | UI 库 |
-| [MDX](https://mdxjs.com) | Markdown + JSX |
+| 技术                                    | 说明            |
+| --------------------------------------- | --------------- |
+| [Next.js 14](https://nextjs.org)        | React 全栈框架  |
+| [React 18](https://react.dev)           | UI 库           |
+| [MDX](https://mdxjs.com)                | Markdown + JSX  |
 | [Tailwind CSS](https://tailwindcss.com) | 原子化 CSS 框架 |
-| [Shiki](https://shiki.matsu.io) | 代码语法高亮 |
+| [Shiki](https://shiki.matsu.io)         | 代码语法高亮    |
 
 ## 🚀 快速开始
 
@@ -84,7 +90,7 @@ Next.js 中文文档是 Next.js 官方英文文档的中文翻译版本，旨在
 1. **克隆仓库**
 
 ```bash
-git clone https://github.com/ErvingZheng/open-nextjs-docs.git
+git clone https://github.com/ErvingZheng/chinese-nextjs-docs.git
 cd open-nextjs-docs
 ```
 
@@ -148,6 +154,7 @@ pnpm prebuild
 ```
 
 该命令会自动执行：
+
 - `npx ts-node scripts/generateMenu.ts` - 生成 `menuLink.ts`
 - `pnpm generate-order-index` - 生成所需的 JSON 文件
 
@@ -155,7 +162,7 @@ pnpm prebuild
 
 我们非常欢迎各种形式的贡献！
 
-- 🐛 **报告 Bug** - 如果你发现了 bug，请提交 [Issue](https://github.com/ErvingZheng/open-nextjs-docs/issues)
+- 🐛 **报告 Bug** - 如果你发现了 bug，请提交 [Issue](https://github.com/ErvingZheng/chinese-nextjs-docs/issues)
 - 📝 **改进翻译** - 如果你发现翻译不准确或有更好的表达，欢迎提交 PR
 - ✨ **新功能建议** - 如果你有好的想法，欢迎讨论
 - 📖 **完善文档** - 帮助我们改进项目文档
@@ -173,7 +180,7 @@ pnpm prebuild
 - 💬 [Discord 社区](https://discord.gg/RVzeCQYnBp)
 - 📱 [微信交流群](https://mp.weixin.qq.com/s/ctq5sYAxfmW9eIBD9IBjbQ)
 - 🐦 Twitter: [@weijunext](https://x.com/weijunext) / [@awei_dev](https://x.com/awei_dev)
-- 🏠 即刻: [程普](https://okjk.co/QFBTzp) / [阿伟dev](https://okjk.co/y0Km6S)
+- 🏠 即刻: [程普](https://okjk.co/QFBTzp) / [阿伟 dev](https://okjk.co/y0Km6S)
 
 ## 👥 Next.js 中文文档网站发起人
 
@@ -207,6 +214,6 @@ pnpm prebuild
 本项目采用 [MIT License with Attribution Requirement](./LICENSE)。
 
 使用本项目代码时，请确保：
+
 1. 保留版权声明
 2. 在网站 Footer 或显著位置添加指向本仓库的链接
-

@@ -49,7 +49,7 @@ const Footer = () => {
               <div>© 2024 weijunext & 阿伟dev.</div>
               <div className="ml-4">
                 <Link
-                  href="https://github.com/ErvingZheng/open-nextjs-docs"
+                  href="https://github.com/ErvingZheng/chinese-nextjs-docs"
                   title="GitHub 仓库"
                   rel="noopener noreferrer"
                   target="_blank"
