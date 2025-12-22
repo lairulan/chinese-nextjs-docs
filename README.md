@@ -175,7 +175,7 @@ pnpm prebuild
 - 🐦 Twitter: [@weijunext](https://x.com/weijunext) / [@awei_dev](https://x.com/awei_dev)
 - 🏠 即刻: [程普](https://okjk.co/QFBTzp) / [阿伟dev](https://okjk.co/y0Km6S)
 
-## 👥 发起人
+## 👥 Next.js 中文文档网站发起人
 
 <table>
   <tr>
