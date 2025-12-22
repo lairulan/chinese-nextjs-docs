@@ -78,8 +78,3 @@ jobs:
       #     subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
       #     subject-digest: ${{ steps.push.outputs.digest }}
       #     push-to-registry: true
-
-      # Trigger redeploy on dokploy => project webhooks settings
-      - name: Trigger dokploy redeploy
-        run: |
-          curl -X GET https://dokploy.wenext.dev/api/deploy/0GMW_KL4CQBjbgqBIqnq8
