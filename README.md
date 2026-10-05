@@ -1,6 +1,6 @@
 <!-- 0xfaheng-brand:start -->
 > Fork 自 [ErvingZheng/chinese-nextjs-docs](https://github.com/ErvingZheng/chinese-nextjs-docs)；原项目署名和许可条款以原作者声明为准。
-> Fork 归属：**0xfaheng** · 上海封阳科技创始人 · [主页与公开项目](https://github.com/0xfaheng)
+> 此 Fork 所在账号：**0xfaheng**（上海封阳科技创始人） · [主页与公开项目](https://github.com/0xfaheng)
 > 微信 `faheng2009` · [X](https://x.com/0xfaheng) · [YouTube](https://www.youtube.com/@0xfaheng) · [微信二维码](https://github.com/0xfaheng/0xfaheng/blob/main/assets/wechat-qr.png)
 <!-- 0xfaheng-brand:end -->
 
