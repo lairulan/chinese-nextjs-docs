@@ -1,3 +1,14 @@
+<!-- 0xfaheng-brand:start -->
+**0xfaheng · chinese-nextjs-docs**
+
+[品牌主页与全部公开项目](https://github.com/lairulan) · [当前仓库](https://github.com/lairulan/chinese-nextjs-docs)
+
+> 本仓库是 0xfaheng 使用或维护的 Fork。原项目来源：[ErvingZheng/chinese-nextjs-docs](https://github.com/ErvingZheng/chinese-nextjs-docs)。原作者署名和许可证保留，使用须遵循原项目许可。
+
+<!-- 0xfaheng-brand:end -->
+
+---
+
 <div align="center">
   <img src="public/logo.svg" alt="Next.js 中文文档" width="120" />
   <h1>Next.js 中文文档</h1>
