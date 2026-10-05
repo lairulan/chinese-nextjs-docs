@@ -1,14 +1,7 @@
 <!-- 0xfaheng-brand:start -->
-**0xfaheng · chinese-nextjs-docs**
-
-> 0xfaheng · 上海封阳科技创始人
-
-[品牌主页与全部公开项目](https://github.com/0xfaheng) · [当前仓库](https://github.com/0xfaheng/chinese-nextjs-docs)
-
-> 本仓库是 0xfaheng 使用或维护的 Fork。原项目来源：[ErvingZheng/chinese-nextjs-docs](https://github.com/ErvingZheng/chinese-nextjs-docs)。原作者署名和许可证保留，使用须遵循原项目许可。
-
-微信：`faheng2009` · [X @0xfaheng](https://x.com/0xfaheng) · [YouTube @0xfaheng](https://www.youtube.com/@0xfaheng) · [微信二维码](https://github.com/0xfaheng#联系与关注)
-
+> Fork 自 [ErvingZheng/chinese-nextjs-docs](https://github.com/ErvingZheng/chinese-nextjs-docs)；原项目署名和许可条款以原作者声明为准。
+> Fork 归属：**0xfaheng** · 上海封阳科技创始人 · [主页与公开项目](https://github.com/0xfaheng)
+> 微信 `faheng2009` · [X](https://x.com/0xfaheng) · [YouTube](https://www.youtube.com/@0xfaheng) · [微信二维码](https://github.com/0xfaheng/0xfaheng/blob/main/assets/wechat-qr.png)
 <!-- 0xfaheng-brand:end -->
 
 ---
